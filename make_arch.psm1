@@ -70,12 +70,6 @@ function Get-CustomCMake {
     (Join-Path (Get-Item $build) "cmake/bin/cmake.exe")
 }
 
-function Get-VcPkg {
-    if ($env:VCPKG_ROOT) {
-        (Join-Path $env:VCPKG_ROOT "vcpkg.exe")
-    }
-}
-
 function Enter-DevShell {
     $module = Get-DevShell
     $vsinstall = Get-VsInstallPath
@@ -108,19 +102,6 @@ function Write-Arguments {
     Write-Log "$l"
 }
 
-function Invoke-VcPkg { 
-    [CmdLetBinding()] param (
-        [Parameter()][String] $target = $null,
-        [Parameter(Mandatory = $true, Position = 0, ValueFromRemainingArguments)] $vcpkg_args
-    )
-    Clear-Arguments
-    Push-Arguments --triplet $target
-    Push-Arguments --x-buildtrees-root $env:X_buildtrees_root
-    Push-Arguments --x-install-root $env:X_install_root
-    Push-Arguments --x-packages-root $env:X_packages_root
-    & (Get-VcPkg) ((Get-Arguments) + $vcpkg_args)
-}
-
 function Invoke-CMake { 
     [CmdLetBinding()] param (
         [Parameter(Mandatory = $true)][String] $cmake
@@ -135,57 +116,46 @@ function Invoke-CMake {
     & $cmake (@($source) + $cmake_args)
 }
 
-function Check-Hash {
-    param($file, $abi)
-    if (-not (Test-Path $file)) { return $false }
-    $h = (Get-FileHash $file -Algorithm SHA1).Hash
-    $h = "$abi-$h"
-    $f = Get-Content ".$file.lock" -Raw
-    return ($f -like "*$h*")
+function Get-MsVcArch {
+    param($abi)
+    switch ($abi) {
+        ('msvc-win-amd64') { 'x64' }
+        ('msvc-win-x86') { 'x86' }
+        ('msvc-android-amd64') { 'x64' }
+        ('msvc-android-x86') { 'x86' }
+        ('msvc-android-aarch64') { 'arm64' }
+        ('msvc-android-armeabi') { 'arm' }
+    }
 }
-
-function Save-Hash {
-    param($file, $abi)
-    $h = (Get-FileHash $file -Algorithm SHA1).Hash
-    $h = "$abi-$h"
-    $h | Out-File -Append ".$file.lock"
-}
-
 function make {
     [CmdletBinding()]
     param (
     [string] $abi,
-    [string] $msvc_arch,
-    [string] $ndk_arch,
-    [string] $conf,
-    [string] $cxx_flags,
-    [string] $c_flags,
-    [string[]] $plat_defines)
+    [string] $conf)
 
     Write-Log "[PMake] Building $abi"
 
     # options
 
-    $is_arm = "$msvc_arch,$ndk_arch".Contains('arm')
+    $is_android = "$abi".Contains('android')
     $is_windows = "$abi".Contains('win')
     $is_emscripten = "$abi".Contains('wasm')
-    $is_bigendian = (&{ if ($is_arm) {'ON'} else {'OFF'} })
+    $is_msvc = "$abi".Contains('msvc')
     $vs_cmake = $true
     
     # project overriden parameters:
 
     Import-Module $PSScriptRoot/make_def.psm1 -Force -ArgumentList @{
-      'is_arm' = $is_arm;
+      'is_android' = $is_android;
       'is_windows' = $is_windows;
       'is_emscripten' = $is_emscripten;
-      'msvc_arch' = $msvc_arch;
-      'ndk_arch' = $ndk_arch;
+      'is_msvc' = $is_msvc;
     }
 
     # paths
 
-    $target = (New-Item -ItemType Directory "$build/$($target_name)_$($abi)_$conf" -Force).FullName
-    $bin = (New-Item -ItemType Directory "$out/$($target_name)_$($abi)_$conf" -Force).FullName
+    $target = (New-Item -ItemType Directory "$build/$target_name/$abi-$conf" -Force).FullName
+    $bin = (New-Item -ItemType Directory "$out/$target_name/$abi-$conf" -Force).FullName
     $lib = (New-Item -ItemType Directory $bin/lib -Force).FullName
     $src = (Get-Item $src).FullName
 
@@ -197,29 +167,15 @@ function make {
         $cmake = Get-CustomCMake -build $build
     }
 
-    if ($msvc_arch) {
+    if ($is_msvc) {
         Enter-DevShell
     }
-
-    # install thirdy-parties
-
-    Write-Log "[PMake] Packages $abi"
-
-    Push-Location $src
-    if (-not (Check-Hash -file 'vcpkg.json' -abi $abi)) {
-        Invoke-VcPkg `
-            -target $abi `
-            install |
-            Out-Host
-        Save-Hash -file 'vcpkg.json' -abi $abi
-    }
-    Pop-Location
 
     # generate
 
     Write-Log "[PMake] Generating $abi"
 
-    $final_defines = $proj_defines + $plat_defines
+    $final_defines = $proj_defines
 
     Clear-Arguments
     Push-Arguments     $src
@@ -233,9 +189,9 @@ function make {
     foreach ($define in $final_defines) { 
         Push-Arguments '-D' $define 
     }
-    if ($msvc_arch) { 
+    if ($is_msvc) { 
         Push-Arguments '-G' 'Visual Studio 16 2019'
-        Push-Arguments '-A' "$msvc_arch"
+        Push-Arguments '-A' (Get-MsVcArch $abi)
     } else {
         Push-Arguments '-G' 'Ninja'
     }
@@ -255,22 +211,6 @@ function make {
     #     --parallel 10 `
     #     "-DCMAKE_BUILD_TYPE=$conf" `
     #     "-DCMAKE_INSTALL_PREFIX=$bin"
-
-    if ($msvc_arch) {
-        & $msbuild `
-            "$target/$($project_name).sln" `
-            -maxCpuCount:10 `
-            -p:Configuration=$conf `
-            -detailedSummary |
-            Out-Host
-    } else {
-        & $ninja `
-            -f "$target/build.ninja" `
-            -C $target `
-            -j 10 `
-            -v |
-            Out-Host
-    }
 
     if ($LASTEXITCODE -ne 0) { return }
 
