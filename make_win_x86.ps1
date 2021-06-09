@@ -7,7 +7,7 @@ Import-Module $PSScriptRoot/make_win_def.psm1 -Force
 
 # make
 make `
-    -abi 'win_x86' `
+    -abi 'msvc-win-x86' `
     -msvc_arch 'win32' `
     -ndk_arch $null `
     -conf 'release' `

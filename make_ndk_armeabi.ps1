@@ -7,7 +7,7 @@ Import-Module $PSScriptRoot/make_ndk_def.psm1 -Force
 
 # make
 make `
-    -abi 'armeabi' `
+    -abi 'ndk-android-armeabi' `
     -msvc_arch $null `
     -ndk_arch 'armeabi-v7a' `
     -conf 'release' `

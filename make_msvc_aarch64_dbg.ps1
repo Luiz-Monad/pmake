@@ -7,7 +7,7 @@ Import-Module $PSScriptRoot/make_msvc_def.psm1 -Force
 
 # make
 make `
-    -abi 'msvc_aarch64' `
+    -abi 'msvc-android-aarch64' `
     -msvc_arch 'arm64' `
     -ndk_arch 'arm64-v8a' `
     -conf 'debug' `

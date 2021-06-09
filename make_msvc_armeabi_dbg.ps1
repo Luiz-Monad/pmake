@@ -7,7 +7,7 @@ Import-Module $PSScriptRoot/make_msvc_def.psm1 -Force
 
 # make
 make `
-    -abi 'msvc_armeabi' `
+    -abi 'msvc-android-armeabi' `
     -msvc_arch 'arm' `
     -ndk_arch 'armeabi-v7a' `
     -conf 'debug' `

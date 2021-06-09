@@ -7,7 +7,7 @@ Import-Module $PSScriptRoot/make_ndk_def.psm1 -Force
 
 # make
 make `
-    -abi 'x86' `
+    -abi 'ndk-android-x86' `
     -msvc_arch $null `
     -ndk_arch 'x86' `
     -conf 'debug' `
