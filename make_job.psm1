@@ -16,23 +16,23 @@ function make {
             $make_target = `
                 Join-Path $PSScriptRoot "make_target.ps1" |
                 Get-Item
-            $name = $make_target.BaseName
+            $logfile = (Join-Path $PSScriptRoot "out-$abi-$conf.txt")
             $script = $make_target.FullName
             $block = [ScriptBlock] {
                 [CmdletBinding()]
-                param ($scb, $abi, $conf)
-                & $scb $abi $conf
+                param ($scb, $abi, $conf, $logfile)
+                & $scb $abi $conf |
+                    Tee-Object -FilePath $logfile |
+                    Out-Host
             }
             if ($parallel) {
                 Start-Job `
                     -ScriptBlock $block `
-                    -ArgumentList @($script, $abi, $conf) `
+                    -ArgumentList @($script, $abi, $conf, $logfile) `
                     -WorkingDirectory (Get-Location) `
-                    -Verbose:$VerbosePreference |
-                    Tee-Object -FilePath "out_$name.txt"
+                    -Verbose:$VerbosePreference
             } else {
-                & $block -scb $script -abi $abi -dbg $conf |
-                    Tee-Object -FilePath "out_$name.txt"
+                & $block -scb $script -abi $abi -dbg $conf -logfile $logfile
             }
         }
     if ($parallel) {

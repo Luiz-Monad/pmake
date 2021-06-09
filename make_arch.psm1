@@ -102,6 +102,20 @@ function Write-Arguments {
     Write-Log "$l"
 }
 
+function Get-MsVcArch {
+    param($abi)
+    switch ($abi) {
+        ('msvc-android-amd64') { 'x64' }
+        ('msvc-android-x86') { 'x86' }
+        ('msvc-android-aarch64') { 'arm64' }
+        ('msvc-android-armeabi') { 'arm' }
+        ('msvc-win-amd64') { 'x64' }
+        ('msvc-win-x86') { 'x86' }
+        ('msvc-win-aarch64') { 'arm64' }
+        ('msvc-win-armeabi') { 'arm' }
+    }
+}
+
 function Invoke-CMake { 
     [CmdLetBinding()] param (
         [Parameter(Mandatory = $true)][String] $cmake
@@ -116,17 +130,6 @@ function Invoke-CMake {
     & $cmake (@($source) + $cmake_args)
 }
 
-function Get-MsVcArch {
-    param($abi)
-    switch ($abi) {
-        ('msvc-win-amd64') { 'x64' }
-        ('msvc-win-x86') { 'x86' }
-        ('msvc-android-amd64') { 'x64' }
-        ('msvc-android-x86') { 'x86' }
-        ('msvc-android-aarch64') { 'arm64' }
-        ('msvc-android-armeabi') { 'arm' }
-    }
-}
 function make {
     [CmdletBinding()]
     param (
@@ -146,6 +149,7 @@ function make {
     # project overriden parameters:
 
     Import-Module $PSScriptRoot/make_def.psm1 -Force -ArgumentList @{
+      'abi' = $abi;
       'is_android' = $is_android;
       'is_windows' = $is_windows;
       'is_emscripten' = $is_emscripten;
@@ -175,18 +179,10 @@ function make {
 
     Write-Log "[PMake] Generating $abi"
 
-    $final_defines = $proj_defines
-
     Clear-Arguments
     Push-Arguments     $src
     Push-Arguments     '-B' $target
-    if ($is_trace) {
-        Push-Arguments '--trace'
-    }
-    if ($is_debug_trycompile) {
-        Push-Arguments '--debug-trycompile'
-    }
-    foreach ($define in $final_defines) { 
+    foreach ($define in $proj_defines) { 
         Push-Arguments '-D' $define 
     }
     if ($is_msvc) { 
@@ -195,34 +191,38 @@ function make {
     } else {
         Push-Arguments '-G' 'Ninja'
     }
+    if ($is_trace) {
+        Push-Arguments '--trace'
+    }
+    if ($is_debug_trycompile) {
+        Push-Arguments '--debug-trycompile'
+    }    
     Invoke-CMake -cmake $cmake | Out-Host
-
     if ($LASTEXITCODE -ne 0) { return }
-    return
 
     # make
 
     Write-Log "[PMake] Making $abi"
     
-    # & $cmake `
-    #     --build $target `
-    #     --config $conf `
-    #     --target install `
-    #     --parallel 10 `
-    #     "-DCMAKE_BUILD_TYPE=$conf" `
-    #     "-DCMAKE_INSTALL_PREFIX=$bin"
-
+    Clear-Arguments
+    Push-Arguments '--build' $target
+    Push-Arguments '--config' $conf
+    Push-Arguments '--target' 'install'
+    Push-Arguments '--parallel' '10'
+    Push-Arguments '-D' "CMAKE_BUILD_TYPE=$conf"
+    Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$bin"
+    Invoke-CMake -cmake $cmake | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
     # deploy
 
     Write-Log "[PMake] Deploy $abi"
     
-    & $cmake `
-        --install $target `
-        --prefix $bin `
-        --config $conf
-
+    Clear-Arguments
+    Push-Arguments '--install' $target
+    Push-Arguments '--prefix' $bin
+    Push-Arguments '--config' $conf
+    Invoke-CMake -cmake $cmake | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
     # symlink static libs
