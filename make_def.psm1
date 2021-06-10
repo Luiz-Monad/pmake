@@ -25,4 +25,4 @@ Export-ModuleMember -Variable @(
     'src',
     'proj_defines',
     'is_trace'
-)
+) *>&1 | Out-Null

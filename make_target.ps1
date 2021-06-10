@@ -2,7 +2,7 @@
 param($abi, $conf)
 
 # pre
-Import-Module $PSScriptRoot/make_arch.psm1 -Force
+Import-Module $PSScriptRoot/make_arch.psm1 -Force *>&1 | Out-Null
 
 # make
 make `
@@ -10,4 +10,4 @@ make `
     -conf $conf
 
 # done
-Get-Module -Name make_arch | Remove-module
+Get-Module -Name make_arch *>&1 | Remove-module *>&1 | Out-Null

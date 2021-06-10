@@ -244,4 +244,4 @@ function make {
 
 }
 
-Export-ModuleMember -Function make | Out-Null
+Export-ModuleMember -Function make *>&1 | Out-Null
