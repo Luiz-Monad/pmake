@@ -1,45 +1,59 @@
-function make {
+function Invoke-Make {
     [CmdletBinding()]
     param (
-    [ScriptBlock] $filter,
-    [boolean] $parallel)
+        [String] $root,
+        [ScriptBlock] $filter,
+        [Switch][Boolean] $no_parallel,
+        [Switch][Boolean] $trace,
+        [Switch][Boolean] $trycompile
+    )
 
-    Write-Host -ForegroundColor Cyan "[PMake] Version 0.1"
+    Write-Host -ForegroundColor Cyan "[PMake] Version 0.2"
 
-    $abis = Get-ChildItem "$env:VCPKG_OVERLAY_TRIPLETS/*.cmake" |
-        ForEach-Object { $_.BaseName; $_.BaseName + "-dbg" }
-    $jobs = $abis | 
+    $jobs = `
+        Get-ChildItem "$env:VCPKG_OVERLAY_TRIPLETS/*.cmake" |
+        Where-Object { ($_.BaseName -split '-').Count -eq 3 } |
+        ForEach-Object { $_.BaseName + '-rel'; $_.BaseName + '-dbg' } |
         Where-Object -FilterScript $filter |
-        ForEach-Object {
-            $abi = ($_ -split "-dbg")[0]
-            $conf = if ($_ -like "*-dbg") {'release'} else {'debug'}
-            $make_target = `
-                Join-Path $PSScriptRoot "make_target.ps1" |
-                Get-Item
-            $logfile = (Join-Path $PSScriptRoot "out-$abi-$conf.txt")
-            $script = $make_target.FullName
-            $block = [ScriptBlock] {
-                [CmdletBinding()]
-                param ($scb, $abi, $conf, $logfile)
-                & $scb $abi $conf |
-                    Tee-Object -FilePath $logfile |
-                    Out-Host
-            }
-            if ($parallel) {
-                Start-Job `
-                    -ScriptBlock $block `
-                    -ArgumentList @($script, $abi, $conf, $logfile) `
-                    -WorkingDirectory (Get-Location) `
-                    -Verbose:$VerbosePreference
-            } else {
-                & $block -scb $script -abi $abi -dbg $conf -logfile $logfile
-            }
+        ForEach-Object `
+    {
+        $pargs = @{
+            abi        = ($_ -split "-(rel|dbg)")[0];
+            conf       = if ($_ -like "*-dbg") { 'debug' } else { 'release' };
+            trace      = $trace
+            trycompile = $trycompile
         }
-    if ($parallel) {
+        $block = [ScriptBlock] {
+            [CmdletBinding()]
+            param ($pargs)
+
+            $logfile = "$root/out-$($pargs.abi)-$($pargs.conf).txt"
+
+            Import-Module $PSScriptRoot/make_arch.psm1 -Force *>&1 | Out-Null
+
+            Invoke-Make @pargs |
+            Tee-Object -FilePath $logfile |
+            Out-Host
+
+        }
+        if (-not $no_parallel) {
+            Start-Job `
+                -ScriptBlock $block `
+                -ArgumentList @($pargs) `
+                -WorkingDirectory (Get-Location) `
+                -Verbose:$VerbosePreference
+        }
+        else {
+            & $block $pargs
+        }
+    }
+
+    if (-not $no_parallel) {
         $jobs | Receive-Job -Wait
-    } else {
+    }
+    else {
         $jobs
     }
 }
 
-Export-ModuleMember -Function make *>&1 | Out-Null
+Export-ModuleMember -Function Invoke-Make *>&1 | Out-Null

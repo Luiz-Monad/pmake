@@ -18,14 +18,15 @@ function Get-Arguments {
 
 function Get-VsWhere {
     param (
-        [Parameter(ParameterSetName="1")][String] $component,
-        [Parameter(ParameterSetName="1")][String] $find,
-        [Parameter(ParameterSetName="2")][String] $property
+        [Parameter(ParameterSetName = "1")][String] $component,
+        [Parameter(ParameterSetName = "1")][String] $find,
+        [Parameter(ParameterSetName = "2")][String] $property
     )
     $vswhere = "C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
     if ($find) {
         & $vswhere -latest -requires $component -find $find
-    } elseif ($property) {
+    }
+    elseif ($property) {
         & $vswhere -latest -property $property
     }
 }
@@ -66,7 +67,7 @@ function Get-VsInstallPath {
 }
 
 function Get-CustomCMake {
-    param($build)
+    param([String] $build)
     (Join-Path (Get-Item $build) "cmake/bin/cmake.exe")
 }
 
@@ -80,10 +81,11 @@ function Enter-DevShell {
 }
 
 function Write-Log { 
-    param($obj, [Switch]$success)
+    param($obj, [Switch] $success)
     if ($success) { 
         Write-Host -ForegroundColor Green $obj
-    } else {
+    }
+    else {
         Write-Host -ForegroundColor Cyan $obj
     }
 }
@@ -95,7 +97,8 @@ function Write-Arguments {
     $exe_args | ForEach-Object { 
         if ($_.StartsWith('-')) { 
             Write-Log "$l"; $l = @($_)
-        } else { 
+        }
+        else { 
             $l = $l + @($_) 
         } 
     }
@@ -103,7 +106,7 @@ function Write-Arguments {
 }
 
 function Get-MsVcArch {
-    param($abi)
+    param([String] $abi)
     switch ($abi) {
         ('msvc-android-amd64') { 'x64' }
         ('msvc-android-x86') { 'x86' }
@@ -130,13 +133,18 @@ function Invoke-CMake {
     & $cmake (@($source) + $cmake_args)
 }
 
-function make {
+function Invoke-Make {
     [CmdletBinding()]
     param (
-    [string] $abi,
-    [string] $conf)
+        [String] $abi,
+        [String] $conf,
+        [Switch][Boolean] $trace,
+        [Switch][Boolean] $trycompile
+    )
 
     Write-Log "[PMake] Building $abi"
+
+    $pjob = $env:VCPKG_MAX_CONCURRENCY
 
     # options
 
@@ -149,15 +157,17 @@ function make {
     # project overriden parameters:
 
     Import-Module $PSScriptRoot/make_def.psm1 -Force -ArgumentList @{
-      'abi' = $abi;
-      'is_android' = $is_android;
-      'is_windows' = $is_windows;
-      'is_emscripten' = $is_emscripten;
-      'is_msvc' = $is_msvc;
+        'abi'           = $abi;
+        'is_android'    = $is_android;
+        'is_windows'    = $is_windows;
+        'is_emscripten' = $is_emscripten;
+        'is_msvc'       = $is_msvc;
     }
 
     # paths
 
+    $build = $env:P_project_build
+    $out = $env:P_project_output
     $target = (New-Item -ItemType Directory "$build/$target_name/$abi-$conf" -Force).FullName
     $bin = (New-Item -ItemType Directory "$out/$target_name/$abi-$conf" -Force).FullName
     $lib = (New-Item -ItemType Directory $bin/lib -Force).FullName
@@ -167,7 +177,8 @@ function make {
 
     if ($vs_cmake) {
         $cmake = Get-CMake
-    } else {
+    }
+    else {
         $cmake = Get-CustomCMake -build $build
     }
 
@@ -188,13 +199,14 @@ function make {
     if ($is_msvc) { 
         Push-Arguments '-G' 'Visual Studio 16 2019'
         Push-Arguments '-A' (Get-MsVcArch $abi)
-    } else {
+    }
+    else {
         Push-Arguments '-G' 'Ninja'
     }
-    if ($is_trace) {
+    if ($trace) {
         Push-Arguments '--trace'
     }
-    if ($is_debug_trycompile) {
+    if ($trycompile) {
         Push-Arguments '--debug-trycompile'
     }    
     Invoke-CMake -cmake $cmake | Out-Host
@@ -208,14 +220,14 @@ function make {
     Push-Arguments '--build' $target
     Push-Arguments '--config' $conf
     Push-Arguments '--target' 'install'
-    Push-Arguments '--parallel' '10'
+    Push-Arguments '--parallel' "$pjob"
     Push-Arguments '-D' "CMAKE_BUILD_TYPE=$conf"
     Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$bin"
     Invoke-CMake -cmake $cmake | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
     # deploy
-
+    return;
     Write-Log "[PMake] Deploy $abi"
     
     Clear-Arguments
@@ -228,12 +240,14 @@ function make {
     # symlink static libs
 
     Get-ChildItem -Path $target -Include ("*.a", "*.lib", "*.pdb") `
-        -Recurse | ForEach-Object {
+        -Recurse | ForEach-Object `
+    {
         $s = $_
         $t = Join-Path $lib $_.Name
         If (-not (Test-Path $t)) {
             New-Item -ItemType SymbolicLink -Path $t -Target $s -Verbose | Out-Null
-        } else {
+        }
+        else {
             Write-Verbose "symlink $t"
         }
     }
@@ -244,4 +258,4 @@ function make {
 
 }
 
-Export-ModuleMember -Function make *>&1 | Out-Null
+Export-ModuleMember -Function Invoke-Make *>&1 | Out-Null
