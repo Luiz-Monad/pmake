@@ -18,8 +18,10 @@ function Invoke-Make {
         ForEach-Object `
     {
         $pargs = @{
-            abi        = ($_ -split "-(rel|dbg)")[0];
-            conf       = if ($_ -like "*-dbg") { 'debug' } else { 'release' };
+            abi        = ($_ -split "-(rel|dbg)")[0]
+            conf       = if ($_ -like "*-dbg") { 'debug' } else { 'release' }
+            core       = "$PSScriptRoot/make_arch.psm1"
+            proj_root  = $root
             trace      = $trace
             trycompile = $trycompile
         }
@@ -27,9 +29,10 @@ function Invoke-Make {
             [CmdletBinding()]
             param ($pargs)
 
-            $logfile = "$root/out-$($pargs.abi)-$($pargs.conf).txt"
+            $logfile = "$($pargs.proj_root)/out-$($pargs.abi)-$($pargs.conf).txt"
 
-            Import-Module $PSScriptRoot/make_arch.psm1 -Force *>&1 | Out-Null
+            Import-Module ($pargs.core) -Force *>&1 | Out-Null
+            $pargs.Remove('core')
 
             Invoke-Make @pargs |
             Tee-Object -FilePath $logfile |

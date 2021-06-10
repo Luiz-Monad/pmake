@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param($conf)
 
-$override = (Join-Path (Get-Location) "pmake_def.psm1")
+$override = "$($conf.proj_root)/pmake_def.psm1"
 if (Test-Path $override) {
     Import-Module $override -Force -ArgumentList @($conf)
 }

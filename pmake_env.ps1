@@ -104,5 +104,3 @@ function vcpkg_refresh_port_overlay {
 }
 
 Add-PathVariable $vcpkg_path
-
-Pop-Location

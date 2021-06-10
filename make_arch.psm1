@@ -138,6 +138,7 @@ function Invoke-Make {
     param (
         [String] $abi,
         [String] $conf,
+        [String] $proj_root,
         [Switch][Boolean] $trace,
         [Switch][Boolean] $trycompile
     )
@@ -157,21 +158,22 @@ function Invoke-Make {
     # project overriden parameters:
 
     Import-Module $PSScriptRoot/make_def.psm1 -Force -ArgumentList @{
-        'abi'           = $abi;
-        'is_android'    = $is_android;
-        'is_windows'    = $is_windows;
-        'is_emscripten' = $is_emscripten;
-        'is_msvc'       = $is_msvc;
+        abi           = $abi
+        is_android    = $is_android
+        is_windows    = $is_windows
+        is_emscripten = $is_emscripten
+        is_msvc       = $is_msvc
+        proj_root     = $proj_root
     }
 
     # paths
 
     $build = $env:P_project_build
     $out = $env:P_project_output
-    $target = (New-Item -ItemType Directory "$build/$target_name/$abi-$conf" -Force).FullName
-    $bin = (New-Item -ItemType Directory "$out/$target_name/$abi-$conf" -Force).FullName
-    $lib = (New-Item -ItemType Directory $bin/lib -Force).FullName
     $src = (Get-Item $src).FullName
+    $tgt = (New-Item -ItemType Directory "$build/$tgt_name/$abi-$conf" -Force).FullName
+    $bin = (New-Item -ItemType Directory "$out/$tgt_name/$abi-$conf" -Force).FullName
+    $lib = (New-Item -ItemType Directory $bin/lib -Force).FullName
 
     # configuration
 
@@ -192,7 +194,7 @@ function Invoke-Make {
 
     Clear-Arguments
     Push-Arguments     $src
-    Push-Arguments     '-B' $target
+    Push-Arguments     '-B' $tgt
     foreach ($define in $proj_defines) { 
         Push-Arguments '-D' $define 
     }
@@ -217,7 +219,7 @@ function Invoke-Make {
     Write-Log "[PMake] Making $abi"
     
     Clear-Arguments
-    Push-Arguments '--build' $target
+    Push-Arguments '--build' $tgt
     Push-Arguments '--config' $conf
     Push-Arguments '--target' 'install'
     Push-Arguments '--parallel' "$pjob"
@@ -231,7 +233,7 @@ function Invoke-Make {
     Write-Log "[PMake] Deploy $abi"
     
     Clear-Arguments
-    Push-Arguments '--install' $target
+    Push-Arguments '--install' $tgt
     Push-Arguments '--prefix' $bin
     Push-Arguments '--config' $conf
     Invoke-CMake -cmake $cmake | Out-Host
@@ -239,7 +241,7 @@ function Invoke-Make {
 
     # symlink static libs
 
-    Get-ChildItem -Path $target -Include ("*.a", "*.lib", "*.pdb") `
+    Get-ChildItem -Path $tgt -Include ("*.a", "*.lib", "*.pdb") `
         -Recurse | ForEach-Object `
     {
         $s = $_
