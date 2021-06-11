@@ -295,10 +295,12 @@ function Invoke-Make {
     Clear-Arguments
     Push-Arguments '--build' $env.tgt
     Push-Arguments '--config' $env.conf
-    Push-Arguments '--target' 'install'
     Push-Arguments '--parallel' "$($env.pjob)"
     Push-Arguments '-D' "CMAKE_BUILD_TYPE=$($env.conf)"
     Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$($env.out)"
+    if ($trace) {
+        Push-Arguments '--trace'
+    }
     Invoke-CMake -cmake (Get-CMake) | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
@@ -312,21 +314,6 @@ function Invoke-Make {
     Push-Arguments '--prefix' $env.out
     Invoke-CMake -cmake (Get-CMake) | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
-
-    # symlink static libs
-
-    Get-ChildItem -Path $tgt -Include ("*.a", "*.lib", "*.pdb") `
-        -Recurse | ForEach-Object `
-    {
-        $s = $_
-        $t = Join-Path $lib $_.Name
-        If (-not (Test-Path $t)) {
-            New-Item -ItemType SymbolicLink -Path $t -Target $s -Verbose | Out-Null
-        }
-        else {
-            Write-Verbose "symlink $t"
-        }
-    }
 
     # done
     
