@@ -6,8 +6,11 @@ function Clear-Arguments {
 }
 
 function Push-Arguments { 
-    param($k, $v)
-    $script:_args = $script:_args + @($k, $v)
+    param($k, $v = $null)
+    $script:_args = $script:_args + @($k)
+    if ($v) {
+        $script:_args = $script:_args + @($v)
+    }
 }
 
 function Get-Arguments { 
@@ -44,9 +47,18 @@ function Get-CMake {
     if (-not $script:_cmake) {
         $script:_cmake = Get-VsWhere `
             -component 'Microsoft.VisualStudio.Component.VC.CMake.Project' `
-            -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/**/cmake.exe'
+            -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/**/cmake.exe'
     }
     $script:_cmake
+}
+
+function Get-Ninja {
+    if (-not $script:_ninja) {
+        $script:_ninja = Get-VsWhere `
+            -component 'Microsoft.VisualStudio.Component.VC.CMake.Project' `
+            -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/**/ninja.exe'
+    }
+    $script:_ninja
 }
 
 function Get-DevShell {
@@ -91,9 +103,8 @@ function Write-Log {
 }
 
 function Write-Arguments {
-    param($exe, $first_arg, $exe_args)
-    Write-Log $exe
-    $l = @("  ", $first_arg);
+    param($exe, $exe_args)
+    $l = @($exe);
     $exe_args | ForEach-Object { 
         if ($_.StartsWith('-')) { 
             Write-Log "$l"; $l = @($_)
@@ -124,13 +135,10 @@ function Invoke-CMake {
         [Parameter(Mandatory = $true)][String] $cmake
     )
     $cmake_args = Get-Arguments
-    $source = $cmake_args | Select-Object -First 1
-    $cmake_args = $cmake_args | Select-Object -Skip 1
     Write-Arguments `
         -exe $cmake `
-        -first_arg $source `
         -exe_args $cmake_args
-    & $cmake (@($source) + $cmake_args)
+    & $cmake $cmake_args
 }
 
 function Invoke-Make {
@@ -168,7 +176,7 @@ function Invoke-Make {
 
     # paths
 
-    $build = $env:P_project_build
+    $build = "$env:P_project_build/$project_name"
     $out = $env:P_project_output
     $src = (Get-Item $src).FullName
     $tgt = (New-Item -ItemType Directory "$build/$tgt_name/$abi-$conf" -Force).FullName
@@ -193,7 +201,7 @@ function Invoke-Make {
     Write-Log "[PMake] Generating $abi"
 
     Clear-Arguments
-    Push-Arguments     $src
+    Push-Arguments     '-S' $src
     Push-Arguments     '-B' $tgt
     foreach ($define in $proj_defines) { 
         Push-Arguments '-D' $define 
@@ -203,6 +211,7 @@ function Invoke-Make {
         Push-Arguments '-A' (Get-MsVcArch $abi)
     }
     else {
+        Push-Arguments '-D' "CMAKE_MAKE_PROGRAM=$(Get-Ninja)"
         Push-Arguments '-G' 'Ninja'
     }
     if ($trace) {

@@ -12,7 +12,7 @@ $root_path = (Get-Item $path).FullName
     $build_path = "$root_path/build"
         $download_path = "$build_path/download"
         $cache_path = "$build_path/caches"
-        $proj_build_path = "$build_path/debug"
+        $proj_build_path = "$build_path/outputs"
     $out_path = "$root_path/out"
 
 # Specify the target architecture triplet. See 'vcpkg help triplet'

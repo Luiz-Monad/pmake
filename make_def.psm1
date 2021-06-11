@@ -11,7 +11,8 @@ $options =  @(
     "--x-packages-root=$env:X_packages_root"
 )
 $proj_defines = @(
-    "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake",
+    "CMAKE_TOOLCHAIN_FILE=$PSScriptRoot/toolchain.cmake",
+    "PMAKE_CHAINLOAD_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake",
     "VCPKG_TARGET_TRIPLET=$($conf.abi)",
     "VCPKG_INSTALL_OPTIONS=$($options -join ';')"
 ) + $proj_defines

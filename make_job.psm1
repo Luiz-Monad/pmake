@@ -33,11 +33,10 @@ function Invoke-Make {
 
             Import-Module ($pargs.core) -Force *>&1 | Out-Null
             $pargs.Remove('core')
-
-            Invoke-Make @pargs |
-            Tee-Object -FilePath $logfile |
-            Out-Host
-
+            
+            Start-Transcript -Path $logfile
+            Invoke-Make @pargs
+            Stop-Transcript
         }
         if (-not $no_parallel) {
             Start-Job `
