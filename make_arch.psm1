@@ -118,10 +118,46 @@ function Get-MsVcArch {
         ('msvc-android-x86') { 'x86' }
         ('msvc-android-aarch64') { 'arm64' }
         ('msvc-android-armeabi') { 'arm' }
-        ('msvc-win-amd64') { 'x64' }
-        ('msvc-win-x86') { 'x86' }
-        ('msvc-win-aarch64') { 'arm64' }
-        ('msvc-win-armeabi') { 'arm' }
+        ('msvc-windows-amd64') { 'x64' }
+        ('msvc-windows-x86') { 'Win32' }
+        ('msvc-windows-aarch64') { 'ARM64' }
+        ('msvc-windows-armeabi') { 'ARM' }
+    }
+}
+
+function Get-MsVcGArch {
+    param([String] $abi)
+    switch ($abi) {
+        ('msvc-android-amd64') { '' }
+        ('msvc-android-x86') { '' }
+        ('msvc-android-aarch64') { '' }
+        ('msvc-android-armeabi') { '' }
+        ('msvc-windows-amd64') { 'Win64' }
+        ('msvc-windows-x86') { '' }
+        ('msvc-windows-aarch64') { 'ARM64' }
+        ('msvc-windows-armeabi') { 'ARM' }
+    }
+}
+
+function Get-MsVcIntellisense {
+    param([String] $abi)
+    switch ($abi) {
+        ('ndk-android-amd64') { 'android-clang-x64' }
+        ('ndk-android-x86') { 'android-clang-x86' }
+        ('ndk-android-aarch64') { 'android-clang-arm64' }
+        ('ndk-android-armeabi') { 'android-clang-arm' }
+        ('msvc-android-amd64') { 'android-clang-x64' }
+        ('msvc-android-x86') { 'android-clang-x86' }
+        ('msvc-android-aarch64') { 'android-clang-arm64' }
+        ('msvc-android-armeabi') { 'android-clang-arm' }
+        ('msvc-windows-amd64') { 'windows-msvc-x64' }
+        ('msvc-windows-x86') { 'windows-msvc-x86' }
+        ('msvc-windows-aarch64') { 'windows-msvc-arm64' }
+        ('msvc-windows-armeabi') { 'windows-msvc-arm' }
+        ('clang-ios-amd64') { 'ios-clang-x64' }
+        ('clang-ios-x86') { 'ios-clang-x86' }
+        ('clang-ios-aarch64') { 'ios-clang-arm64' }
+        ('clang-ios-armeabi') { 'ios-clang-arm' }
     }
 }
 
@@ -312,6 +348,8 @@ function Export-CMakeSettings {
 
     Write-Log "[PMake] Exporting $abi-$conf"
 
+    function proper_case { param($s) "$($s.Substring(0,1).ToUpper())$($s.Substring(1).ToLower())" }
+
     $x = `
         New-Environment `
         -abi $abi `
@@ -319,7 +357,9 @@ function Export-CMakeSettings {
         -proj_root $proj_root
 
     if ($x.is_msvc) { 
-        $generator = 'Visual Studio 16 2019'
+        $arch = (Get-MsVcGArch -abi $abi)
+        $generator = "Visual Studio 16 2019 $arch".Trim()
+        $intellisense = (Get-MsVcIntellisense -abi $abi)
     }
     else {
         $x.proj_defines = $x.proj_defines + @("CMAKE_MAKE_PROGRAM=$(Get-Ninja)")
@@ -331,6 +371,7 @@ function Export-CMakeSettings {
     @{
         "environments"   = @(
             @{
+                "environment"                = "pmake"
                 "VCPKG_DEFAULT_TRIPLET"      = $env:VCPKG_DEFAULT_TRIPLET
                 "VCPKG_DEFAULT_HOST_TRIPLET" = $env:VCPKG_DEFAULT_HOST_TRIPLET
                 "VCPKG_OVERLAY_PORTS"        = $env:VCPKG_OVERLAY_PORTS
@@ -349,14 +390,16 @@ function Export-CMakeSettings {
         )
         "configurations" = @(
             @{
-                "name"              = "$($x.abi)-$($x.conf)"
-                "generator"         = $generator
-                "configurationType" = $x.conf
-                "buildRoot"         = $x.tgt
-                "installRoot"       = $x.out
-                "cmakeCommandArgs"  = ""
-                "buildCommandArgs"  = ""
-                "variables"         = `
+                "name"                = "$($x.abi)-$($x.conf)"
+                "generator"           = $generator
+                "configurationType"   = (proper_case $x.conf)
+                "buildRoot"           = $x.tgt
+                "installRoot"         = $x.out
+                "intelliSenseMode"    = "$intellisense"
+                "inheritEnvironments" = @("pmake")
+                "cmakeCommandArgs"    = ""
+                "buildCommandArgs"    = ""
+                "variables"           = `
                     $x.proj_defines | ForEach-Object {
                     $kv = "$_".Split('=', 2)
                     @{
