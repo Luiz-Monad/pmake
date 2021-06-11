@@ -78,11 +78,6 @@ function Get-VsInstallPath {
     $script:_vsinstall
 }
 
-function Get-CustomCMake {
-    param([String] $build)
-    (Join-Path (Get-Item $build) "cmake/bin/cmake.exe")
-}
-
 function Enter-DevShell {
     $module = Get-DevShell
     $vsinstall = Get-VsInstallPath
@@ -141,6 +136,69 @@ function Invoke-CMake {
     & $cmake $cmake_args
 }
 
+function New-Environment { 
+    [CmdletBinding()]
+    param (
+        [String] $abi,
+        [String] $conf,
+        [String] $proj_root
+    )
+ 
+    # options
+
+    $is_android = "$abi".Contains('android')
+    $is_windows = "$abi".Contains('win')
+    $is_emscripten = "$abi".Contains('wasm')
+    $is_msvc = "$abi".Contains('msvc')
+   
+    # project overriden parameters:
+
+    Push-Location $proj_root
+
+    Import-Module $PSScriptRoot/make_def.psm1 -Force -ArgumentList @{
+        abi           = $abi
+        is_android    = $is_android
+        is_windows    = $is_windows
+        is_emscripten = $is_emscripten
+        is_msvc       = $is_msvc
+        proj_root     = $proj_root
+    }
+
+    $source = (Get-Item $source).FullName
+
+    Pop-Location
+
+    # modified: 'source'
+    # modified: 'project_name'
+    # modified: 'target_name'
+    # modified: 'defines'
+
+    # environment
+    
+    $out = $env:P_project_output
+    $build = $env:P_project_build
+
+    @{
+        abi           = $abi
+        conf          = $conf
+        is_android    = $is_android
+        is_windows    = $is_windows
+        is_emscripten = $is_emscripten
+        is_msvc       = $is_msvc
+        proj_root     = $proj_root
+        proj_name     = $project_name
+        proj_defines  = $defines
+        target_name   = $target_name
+
+        src           = $source
+        tgt           = (New-Item -ItemType Directory "$build/$target_name/$abi-$conf" -Force).FullName
+        out           = (New-Item -ItemType Directory "$out/$target_name/$abi-$conf" -Force).FullName
+
+        pjob          = $env:VCPKG_MAX_CONCURRENCY
+    }
+
+}
+
 function Invoke-Make {
     [CmdletBinding()]
     param (
@@ -153,62 +211,33 @@ function Invoke-Make {
 
     Write-Log "[PMake] Building $abi"
 
-    $pjob = $env:VCPKG_MAX_CONCURRENCY
+    $env = `
+        New-Environment `
+        -abi $abi `
+        -conf $conf `
+        -proj_root $proj_root
 
-    # options
+    # tool environment
 
-    $is_android = "$abi".Contains('android')
-    $is_windows = "$abi".Contains('win')
-    $is_emscripten = "$abi".Contains('wasm')
-    $is_msvc = "$abi".Contains('msvc')
-    $vs_cmake = $true
-    
-    # project overriden parameters:
-
-    Import-Module $PSScriptRoot/make_def.psm1 -Force -ArgumentList @{
-        abi           = $abi
-        is_android    = $is_android
-        is_windows    = $is_windows
-        is_emscripten = $is_emscripten
-        is_msvc       = $is_msvc
-        proj_root     = $proj_root
-    }
-
-    # paths
-
-    $build = "$env:P_project_build/$project_name"
-    $out = $env:P_project_output
-    $src = (Get-Item $src).FullName
-    $tgt = (New-Item -ItemType Directory "$build/$tgt_name/$abi-$conf" -Force).FullName
-    $bin = (New-Item -ItemType Directory "$out/$tgt_name/$abi-$conf" -Force).FullName
-    $lib = (New-Item -ItemType Directory $bin/lib -Force).FullName
-
-    # configuration
-
-    if ($vs_cmake) {
-        $cmake = Get-CMake
-    }
-    else {
-        $cmake = Get-CustomCMake -build $build
-    }
-
-    if ($is_msvc) {
+    if ($env.is_msvc) {
         Enter-DevShell
     }
 
+    $tri = $($env.proj_name)-$($env.abi)-$($env.conf)
+
     # generate
 
-    Write-Log "[PMake] Generating $abi"
+    Write-Log "[PMake] Generating $tri"
 
     Clear-Arguments
-    Push-Arguments     '-S' $src
-    Push-Arguments     '-B' $tgt
-    foreach ($define in $proj_defines) { 
-        Push-Arguments '-D' $define 
+    Push-Arguments     '-S' $env.src
+    Push-Arguments     '-B' $env.tgt
+    foreach ($def in $env.proj_defines) { 
+        Push-Arguments '-D' $def 
     }
-    if ($is_msvc) { 
+    if ($env.is_msvc) { 
         Push-Arguments '-G' 'Visual Studio 16 2019'
-        Push-Arguments '-A' (Get-MsVcArch $abi)
+        Push-Arguments '-A' (Get-MsVcArch $env.abi)
     }
     else {
         Push-Arguments '-D' "CMAKE_MAKE_PROGRAM=$(Get-Ninja)"
@@ -220,32 +249,32 @@ function Invoke-Make {
     if ($trycompile) {
         Push-Arguments '--debug-trycompile'
     }    
-    Invoke-CMake -cmake $cmake | Out-Host
+    Invoke-CMake -cmake (Get-CMake) | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
     # make
 
-    Write-Log "[PMake] Making $abi"
+    Write-Log "[PMake] Making $tri"
     
     Clear-Arguments
-    Push-Arguments '--build' $tgt
-    Push-Arguments '--config' $conf
+    Push-Arguments '--build' $env.tgt
+    Push-Arguments '--config' $env.conf
     Push-Arguments '--target' 'install'
-    Push-Arguments '--parallel' "$pjob"
-    Push-Arguments '-D' "CMAKE_BUILD_TYPE=$conf"
-    Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$bin"
-    Invoke-CMake -cmake $cmake | Out-Host
+    Push-Arguments '--parallel' "$($env.pjob)"
+    Push-Arguments '-D' "CMAKE_BUILD_TYPE=$($env.conf)"
+    Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$($env.out)"
+    Invoke-CMake -cmake (Get-CMake) | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
     # deploy
-    return;
-    Write-Log "[PMake] Deploy $abi"
+    
+    Write-Log "[PMake] Deploy $tri"
     
     Clear-Arguments
-    Push-Arguments '--install' $tgt
-    Push-Arguments '--prefix' $bin
-    Push-Arguments '--config' $conf
-    Invoke-CMake -cmake $cmake | Out-Host
+    Push-Arguments '--install' $env.tgt
+    Push-Arguments '--config' $env.conf
+    Push-Arguments '--prefix' $env.out
+    Invoke-CMake -cmake (Get-CMake) | Out-Host
     if ($LASTEXITCODE -ne 0) { return }
 
     # symlink static libs
@@ -265,8 +294,80 @@ function Invoke-Make {
 
     # done
     
-    Write-Log -Success "[PMake] Build $abi $conf Ok"
+    Write-Log -Success "[PMake] Build $tri Ok"
 
 }
 
 Export-ModuleMember -Function Invoke-Make *>&1 | Out-Null
+
+function Export-CMakeSettings {
+    [CmdletBinding()]
+    param (
+        [String] $abi,
+        [String] $conf,
+        [String] $proj_root,
+        [Switch][Boolean] $trace,
+        [Switch][Boolean] $trycompile
+    )
+
+    Write-Log "[PMake] Exporting $abi-$conf"
+
+    $x = `
+        New-Environment `
+        -abi $abi `
+        -conf $conf `
+        -proj_root $proj_root
+
+    if ($x.is_msvc) { 
+        $generator = 'Visual Studio 16 2019'
+    }
+    else {
+        $x.proj_defines = $x.proj_defines + @("CMAKE_MAKE_PROGRAM=$(Get-Ninja)")
+        $generator = 'Ninja'
+    }
+
+    # Create a CMakeSettings with our environment to use in Visual Studio.
+
+    @{
+        "environments"   = @(
+            @{
+                "VCPKG_DEFAULT_TRIPLET"      = $env:VCPKG_DEFAULT_TRIPLET
+                "VCPKG_DEFAULT_HOST_TRIPLET" = $env:VCPKG_DEFAULT_HOST_TRIPLET
+                "VCPKG_OVERLAY_PORTS"        = $env:VCPKG_OVERLAY_PORTS
+                "VCPKG_OVERLAY_TRIPLETS"     = $env:VCPKG_OVERLAY_TRIPLETS
+                "VCPKG_DOWNLOADS"            = $env:VCPKG_DOWNLOADS
+                "VCPKG_ROOT"                 = $env:VCPKG_ROOT
+                "VCPKG_DEFAULT_BINARY_CACHE" = $env:VCPKG_DEFAULT_BINARY_CACHE
+                "VCPKG_MAX_CONCURRENCY"      = $env:VCPKG_MAX_CONCURRENCY
+                "X_buildtrees_root"          = $env:X_buildtrees_root
+                "X_install_root"             = $env:X_install_root
+                "X_packages_root"            = $env:X_packages_root
+                "P_project_build"            = $env:P_project_build
+                "P_project_output"           = $env:P_project_output
+                "P_project_source"           = $x.src
+            }
+        )
+        "configurations" = @(
+            @{
+                "name"              = "$($x.abi)-$($x.conf)"
+                "generator"         = $generator
+                "configurationType" = $x.conf
+                "buildRoot"         = $x.tgt
+                "installRoot"       = $x.out
+                "cmakeCommandArgs"  = ""
+                "buildCommandArgs"  = ""
+                "variables"         = `
+                    $x.proj_defines | ForEach-Object {
+                    $kv = "$_".Split('=', 2)
+                    @{
+                        "name"  = $kv[0]
+                        "value" = $kv[1]
+                        "type"  = "STRING"
+                    }
+                }
+            }
+        )
+    }
+}
+
+Export-ModuleMember -Function Export-CMakeSettings *>&1 | Out-Null

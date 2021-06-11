@@ -10,17 +10,16 @@ $options =  @(
     "--x-buildtrees-root=$env:X_buildtrees_root",
     "--x-packages-root=$env:X_packages_root"
 )
-$proj_defines = @(
+$defines = @(
     "CMAKE_TOOLCHAIN_FILE=$PSScriptRoot/toolchain.cmake",
     "PMAKE_CHAINLOAD_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake",
     "VCPKG_TARGET_TRIPLET=$($conf.abi)",
     "VCPKG_INSTALL_OPTIONS=$($options -join ';')"
-) + $proj_defines
+) + $defines
 
 Export-ModuleMember -Variable @(
-    'src',
+    'source',
     'project_name',
     'target_name',
-    'proj_defines',
-    'vs_cmake'
+    'defines'
 ) *>&1 | Out-Null

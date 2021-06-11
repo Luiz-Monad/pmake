@@ -5,10 +5,11 @@ function Invoke-Make {
         [ScriptBlock] $filter,
         [Switch][Boolean] $no_parallel,
         [Switch][Boolean] $trace,
-        [Switch][Boolean] $trycompile
+        [Switch][Boolean] $trycompile,
+        [Switch][Boolean] $export
     )
 
-    Write-Host -ForegroundColor Cyan "[PMake] Version 0.2"
+    Write-Host -ForegroundColor Cyan "[PMake] Version 0.3"
 
     $jobs = `
         Get-ChildItem "$env:VCPKG_OVERLAY_TRIPLETS/*.cmake" |
@@ -38,7 +39,15 @@ function Invoke-Make {
             Invoke-Make @pargs
             Stop-Transcript
         }
-        if (-not $no_parallel) {
+        if ($export) {
+
+            Import-Module ($pargs.core) -Force *>&1 | Out-Null
+            $pargs.Remove('core')
+
+            Export-CMakeSettings @pargs
+
+        }
+        elseif (-not $no_parallel) {
             Start-Job `
                 -ScriptBlock $block `
                 -ArgumentList @($pargs) `
@@ -49,8 +58,14 @@ function Invoke-Make {
             & $block $pargs
         }
     }
-
-    if (-not $no_parallel) {
+    if ($export) {
+        $src = ($jobs.environments[0].P_project_source)
+        ConvertTo-Json -Depth 5 @{ 
+            environments   = @(, $jobs.environments[0])
+            configurations = $jobs.configurations
+        } | Out-File "$src/CMakeSettings.json"
+    }
+    elseif (-not $no_parallel) {
         $jobs | Receive-Job -Wait
     }
     else {

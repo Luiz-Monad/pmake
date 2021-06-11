@@ -4,13 +4,15 @@ Import-Module "$PSScriptRoot/make_job.psm1" -Force *>&1 | Out-Null
 function Invoke-PMake {
     [CmdletBinding()]
     param (
-    [String] $target = $null,
-    [String] $root = $null,
-    [Switch][Boolean] $dbg,
-    [Switch][Boolean] $all,
-    [Switch][Boolean] $no_parallel,
-    [Switch][Boolean] $trace,
-    [Switch][Boolean] $trycompile)
+        [String] $target = $null,
+        [String] $root = $null,
+        [Switch][Boolean] $dbg,
+        [Switch][Boolean] $all,
+        [Switch][Boolean] $no_parallel,
+        [Switch][Boolean] $trace,
+        [Switch][Boolean] $trycompile,
+        [Switch][Boolean] $export
+    )
 
     if (-not $root) {
         $root = (Get-Location)
@@ -18,11 +20,14 @@ function Invoke-PMake {
 
     if ($dbg) {
         $filter = { $_ -like '*-dbg' }
-    } elseif ($target) {
+    }
+    elseif ($target) {
         $filter = { $_ -like "*$target*" }
-    } elseif ($all) {
+    }
+    elseif ($all) {
         $filter = { $true }
-    } else {
+    }
+    else {
         $filter = { $_ -like 'msvc-win-amd64-dbg' }
     }
     
@@ -31,7 +36,8 @@ function Invoke-PMake {
         -filter $filter `
         -no_parallel:$no_parallel `
         -trace:$trace `
-        -trycompile:$trycompile
+        -trycompile:$trycompile `
+        -export:$export
     
 }
 
