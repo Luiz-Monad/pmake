@@ -223,7 +223,7 @@ function Invoke-Make {
         Enter-DevShell
     }
 
-    $tri = $($env.proj_name)-$($env.abi)-$($env.conf)
+    $tri = "$($env.proj_name)-$($env.abi)-$($env.conf)"
 
     # generate
 
