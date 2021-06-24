@@ -1,5 +1,5 @@
 
-Import-Module "$PSScriptRoot/make_job.psm1" -Force *>&1 | Out-Null
+Import-Module "$PSScriptRoot/pmake_job.psm1" -Force *>&1 | Out-Null
 
 function Invoke-PMake {
     [CmdletBinding()]
@@ -37,7 +37,9 @@ function Invoke-PMake {
         -no_parallel:$no_parallel `
         -trace:$trace `
         -trycompile:$trycompile `
-        -export:$export
+        -export:$export `
+        -Verbose:$VerbosePreference `
+        -Debug:$DebugPreference
     
 }
 

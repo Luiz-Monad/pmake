@@ -1,4 +1,6 @@
 
+Import-Module "$PSScriptRoot/pmake_helper.psm1" -Force *>&1 | Out-Null
+
 $script:_args = @()
 
 function Clear-Arguments { 
@@ -89,7 +91,7 @@ function Enter-DevShell {
 
 function Write-Log { 
     param($obj, [Switch] $success)
-    if ($success) { 
+    if ($success) {
         Write-Host -ForegroundColor Green $obj
     }
     else {
@@ -169,7 +171,30 @@ function Invoke-CMake {
     Write-Arguments `
         -exe $cmake `
         -exe_args $cmake_args
-    & $cmake $cmake_args
+    $trace = ('--trace' -in $cmake_args)
+    $LASTEXITCODE = -1
+    Invoke-Process `
+        -FilePath $cmake `
+        -ArgumentList $cmake_args `
+        -Timeout ([TimeSpan]::MaxValue) `
+        -RedirectError:$trace `
+        -Verbose:$VerbosePreference `
+        -Debug:$DebugPreference |
+    ForEach-Object {
+        if ($_ -is [PSCustomObject]) {
+            $LASTEXITCODE = $_.ExitCode
+        }
+        else {
+            if ($trace) {
+                Write-Host $obj
+            }
+            else {
+                if ($obj -is [System.Management.Automation.DebugRecord]) {
+                    Write-Debug ($obj | Out-String)
+                }
+            }
+        }
+    }
 }
 
 function New-Environment { 
@@ -285,7 +310,7 @@ function Invoke-Make {
     if ($trycompile) {
         Push-Arguments '--debug-trycompile'
     }    
-    Invoke-CMake -cmake (Get-CMake) | Out-Host
+    Invoke-CMake -cmake (Get-CMake)
     if ($LASTEXITCODE -ne 0) { return }
 
     # make
@@ -301,7 +326,7 @@ function Invoke-Make {
     if ($trace) {
         Push-Arguments '--trace'
     }
-    Invoke-CMake -cmake (Get-CMake) | Out-Host
+    Invoke-CMake -cmake (Get-CMake)
     if ($LASTEXITCODE -ne 0) { return }
 
     # deploy
@@ -312,7 +337,7 @@ function Invoke-Make {
     Push-Arguments '--install' $env.tgt
     Push-Arguments '--config' $env.conf
     Push-Arguments '--prefix' $env.out
-    Invoke-CMake -cmake (Get-CMake) | Out-Host
+    Invoke-CMake -cmake (Get-CMake)
     if ($LASTEXITCODE -ne 0) { return }
 
     # done

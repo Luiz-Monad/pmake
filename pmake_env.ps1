@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [String] $path
+    [String] $path,
+    [String] $build,
+    [String] $out
 )
 
 # DirTree
@@ -9,11 +11,11 @@ $root_path = (Get-Item $path).FullName
     $targets_path = "$root_path/targets"
     $thirdy_path = "$root_path/thirdparty"
         $vcpkg_path = "$thirdy_path/vcpkg"
-    $build_path = "$root_path/build"
-        $download_path = "$build_path/download"
-        $cache_path = "$build_path/caches"
-        $proj_build_path = "$build_path/outputs"
-    $out_path = "$root_path/out"
+$build_path = (Get-Item $build).FullName
+    $download_path = "$build_path/download"
+    $cache_path = "$build_path/caches"
+    $proj_build_path = "$build_path/outputs"
+$out_path = (Get-Item $out).FullName
 
 # Specify the target architecture triplet. See 'vcpkg help triplet'
 New-Item -Path env: -Name VCPKG_DEFAULT_TRIPLET -Value x64-windows-static
@@ -39,15 +41,24 @@ New-Item -Path env: -Name VCPKG_DEFAULT_BINARY_CACHE -Value $cache_path
 # Numer of CPUs to use.
 New-Item -Path env: -Name VCPKG_MAX_CONCURRENCY -Value 16
 
+
+
+
 # Specify the buildtrees root directory
 New-Item -Path env: -Name X_buildtrees_root -Value "$build_path/buildtrees"
+
 # Specify the install root directory
 New-Item -Path env: -Name X_install_root -Value "$build_path/install"
+
 # Specify the packages root directory
 New-Item -Path env: -Name X_packages_root -Value "$build_path/packages"
 
+
+
+
 # Specify the intermediate output directory
 New-Item -Path env: -Name P_project_build -Value $proj_build_path
+
 # Specify the final output directory
 New-Item -Path env: -Name P_project_output -Value $out_path
 
@@ -62,6 +73,7 @@ function vcpkg {
         "--x-install-root=$env:X_install_root",        # Specify the install root directory
         "--x-packages-root=$env:X_packages_root"       # Specify the packages root directory
     ) + $vcpkg_args
+    Write-Debug ($fargs -join " ")
     & "$env:VCPKG_ROOT/vcpkg.exe" $fargs
 }
 
