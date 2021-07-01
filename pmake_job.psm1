@@ -1,4 +1,6 @@
 
+Import-Module "$PSScriptRoot/pmake_helper.psm1" -Force *>&1 | Out-Null
+
 function Invoke-Make {
     [CmdletBinding()]
     param (
@@ -10,7 +12,7 @@ function Invoke-Make {
         [Switch][Boolean] $export
     )
 
-    Write-Host -ForegroundColor Cyan "[PMake] Version 0.5"
+    Write-Host -ForegroundColor Cyan "[PMake] Version 0.6"
 
     $jobs = `
         Get-ChildItem "$env:VCPKG_OVERLAY_TRIPLETS/*.cmake" | `
@@ -45,24 +47,27 @@ function Invoke-Make {
 
                 Import-Module ($pargs.helper) -Force *>&1 | Out-Null
                 $pargs.Remove('helper')
-    
+
                 Import-Module ($pargs.core) -Force *>&1 | Out-Null
                 $pargs.Remove('core')
-                
+
                 if ($pargs.trace) {
                     Write-Verbose "[PMake] Tracing..."
                 }
 
                 $logfile = "$($pargs.proj_root)/out-$($pargs.abi)-$($pargs.conf).txt"
-                Invoke-Make @pargs | Tee-Object -FilePath $logfile
+                Set-ProcessTranscript $logfile
+
+                Invoke-Make @pargs
 
             }
             if (-not $no_parallel) {
-                Start-ThreadJob `
-                    -StreamingHost (Get-Host) `
+                Invoke-ThreadJob `
+                    -Verbose:$VerbosePreference `
+                    -Debug:$DebugPreference `
                     -Name "InvokeMake" `
                     -ScriptBlock $block `
-                    -ArgumentList @($pargs)
+                    -ArgumentList $pargs
             }
             else {
                 & $block $pargs
@@ -75,15 +80,6 @@ function Invoke-Make {
             environments   = @(, $jobs.environments[0])
             configurations = $jobs.configurations
         } | Out-File "$src/CMakeSettings.json"
-    }
-    else {
-
-        if (-not $no_parallel) {
-            $jobs = $jobs | Receive-Job -Wait -AutoRemoveJob
-        }
-        else {
-            $jobs
-        }
     }
 }
 

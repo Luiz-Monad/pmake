@@ -30,17 +30,17 @@ function Invoke-PMake {
     else {
         $filter = { $_ -like 'msvc-win-amd64-dbg' }
     }
-    
+
     Invoke-Make `
         -root:$root `
-        -filter $filter `
+        -filter:$filter `
         -no_parallel:$no_parallel `
         -trace:$trace `
         -trycompile:$trycompile `
         -export:$export `
         -Verbose:$VerbosePreference `
         -Debug:$DebugPreference
-    
+
 }
 
 Export-ModuleMember -Function Invoke-PMake *>&1 | Out-Null
