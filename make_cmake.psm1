@@ -177,24 +177,9 @@ function Invoke-CMake {
         -FilePath $cmake `
         -ArgumentList $cmake_args `
         -Timeout ([TimeSpan]::MaxValue) `
-        -RedirectError:$trace `
         -Verbose:$VerbosePreference `
-        -Debug:$DebugPreference |
-    ForEach-Object {
-        if ($_ -is [PSCustomObject]) {
-            $LASTEXITCODE = $_.ExitCode
-        }
-        else {
-            if ($trace) {
-                Write-Host $obj
-            }
-            else {
-                if ($obj -is [System.Management.Automation.DebugRecord]) {
-                    Write-Debug ($obj | Out-String)
-                }
-            }
-        }
-    }
+        -Debug:$DebugPreference | `
+        Write-Object -RedirectError:$trace
 }
 
 function New-Environment { 

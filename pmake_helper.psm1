@@ -29,35 +29,66 @@ Export-ModuleMember -Function Set-ProcessTranscript *>&1 | Out-Null
 function Write-Object {
     [CmdLetBinding()]
     param (
-        [string]$tag, 
-        [Parameter(ValueFromPipeline)][object]$obj
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
+        [object]$obj,
+
+        [Parameter(Mandatory = $false, Position = 1)]
+        [Switch]$RedirectError = $false
     )
     begin {
-        $ix = 0;
+        $sb = New-Object System.Text.StringBuilder
+        $strm = [System.Management.Automation.Language.RedirectionStream]::Output
     }
     process {
-        $ntag = "$($tag)[$ix]:"
-        if ($null -eq $obj) {
-            #Write-Host ( "$($ntag)[null]" )
-            return;
+        if ($_ -is [PowerProcess.InvokeProcessFastCommand+WrapObject]) {
+            if (($_.Stream -ne $strm) -and (-not $RedirectError)) {
+                if ($sb.Length -gt 0) {
+                    if ($strm -eq 'Output') { 
+                        Write-Host -ForegroundColor Gray $sb.ToString()
+                    }
+                    elseif ($strm -eq 'Error') { 
+                        Write-Host -ForegroundColor Red $sb.ToString()
+                    }
+                    else { 
+                        Write-Host -ForegroundColor Yellow $sb.ToString()
+                    }
+                    $sb = New-Object System.Text.StringBuilder
+                }
+                $strm = $_.Stream
+            }
+            $null = $sb.AppendLine($_.Message)
         }
-        #Write-Host ( "$($ntag)$($obj.GetType().FullName)" )
-        if (($obj -is [System.Collections.IList]) -or ($obj -is [System.Array])) {
-            $obj | Write-Object -Tag $ntag
+        elseif (($_ -is [System.Collections.IList]) -or ($_ -is [System.Array])) {               
+            $message = $_ | Write-Object -RedirectError:$RedirectError
+            $null = $sb.AppendLine($message)
         }
-        elseif ($obj -is [System.Management.Automation.ErrorRecord]) {
-            Write-Host -ForegroundColor Red "ERROR: $($obj.Exception.Message)"
+        elseif ($_ -is [System.Management.Automation.ErrorRecord]) {
+            Write-Error ($_ | Out-String)
         }
-        elseif (($obj.Stream) -and ($obj.Stream -eq 'Error')) {
-            Write-Host -ForegroundColor Red "ERROR: $($obj.Message)"
+        elseif ($_ -is [System.Management.Automation.DebugRecord]) {
+            Write-Debug ($_ | Out-String)
         }
-        elseif (($obj.Stream) -and ($obj.Stream -eq 'Output')) {
-            Write-Host ( $obj.Message )
+        elseif ($_ -is [System.Management.Automation.VerboseRecord]) {
+            Write-Verbose ($_ | Out-String)
+        }
+        elseif (($_ -is [PsCustomObject]) -and ($_.ExitCode)) {
+            $LASTEXITCODE = $_.ExitCode
         }
         else {
-            Write-Host ( $obj | Out-String )
+            $null = $sb.AppendLine((Out-String $_))
         }
-        $ix = $ix + 1
+    } end {
+        if ($sb.Length -gt 0) {
+            if ($strm -eq 'Output') { 
+                Write-Host -ForegroundColor Gray $sb.ToString()
+            }
+            elseif ($strm -eq 'Error') { 
+                Write-Host -ForegroundColor Red $sb.ToString()
+            }
+            else { 
+                Write-Host -ForegroundColor Yellow $sb.ToString()
+            }
+        }
     }
 }
 
@@ -79,21 +110,17 @@ function Invoke-ThreadJob {
         [string]$Name = "",
 
         [Parameter(Mandatory = $false, Position = 4)]
-        [TimeSpan]$Timeout = [System.TimeSpan]::FromMinutes(2),
-
-        [Parameter(Mandatory = $false, Position = 5)][Switch]
-        [Boolean]$RedirectError = $false
+        [TimeSpan]$Timeout = [System.TimeSpan]::FromMinutes(2)
     )
     begin {
         $pargs = @{
-            Name          = $Name
-            Verbose       = $VerbosePreference
-            Debug         = $DebugPreference
-            Modules       = $Script:Dependencies
-            RedirectError = $RedirectError
-            ScriptBlock   = $ScriptBlock
-            ArgumentList  = $ArgumentList
-            Timeout       = $Timeout
+            Name         = $Name
+            Verbose      = $VerbosePreference
+            Debug        = $DebugPreference
+            Modules      = $Script:Dependencies
+            ScriptBlock  = $ScriptBlock
+            ArgumentList = $ArgumentList
+            Timeout      = $Timeout
         }
         $job = Start-ThreadJob `
             -Verbose:$VerbosePreference `
@@ -134,17 +161,17 @@ function Invoke-ThreadJob {
     } process {
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
+            Write-Debug "Waiting on ThreadJob $Name"
         }
 
-        Write-Debug "Waiting on ThreadJob $Name"
         Receive-Job $job -Wait
 
     } end {
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
+            Write-Debug "Removing ThreadJob $Name"
         }
 
-        Write-Debug "Removing ThreadJob $Name"
         Remove-Job $job
 
     }
@@ -171,10 +198,7 @@ function Invoke-Process {
         [TimeSpan]$Timeout = [System.TimeSpan]::FromMinutes(2),
 
         [Parameter(Mandatory = $false, Position = 4)]
-        [System.Diagnostics.ProcessPriorityClass]$Priority = [System.Diagnostics.ProcessPriorityClass]::Normal,
-
-        [Parameter(Mandatory = $false, Position = 6)][Switch]
-        [Boolean]$RedirectError = $false
+        [System.Diagnostics.ProcessPriorityClass]$Priority = [System.Diagnostics.ProcessPriorityClass]::Normal
     )
     begin {
         $Name = if (Test-Path $FilePath) { (Get-Item $FilePath).BaseName } else { "" }
@@ -183,7 +207,6 @@ function Invoke-Process {
             Verbose          = $VerbosePreference
             Debug            = $DebugPreference
             Modules          = $Script:Dependencies
-            RedirectError    = $RedirectError
             FilePath         = $FilePath
             ArgumentList     = $ArgumentList
             WorkingDirectory = $WorkingDirectory
@@ -216,18 +239,16 @@ function Invoke-Process {
                 Invoke-ProcessFast `
                     -WrapOutputStream `
                     -MergeStandardErrorToOutput `
-                    -OutputBuffer 256 `
+                    -OutputBuffer 1 `
                     -FilePath $pargs.FilePath `
                     -ArgumentList $pargs.ArgumentList `
                     -WorkingDirectory $pargs.WorkingDirectory `
-                    -Wait *>&1 | 
-                Write-Object
-
-                Write-Debug "Process Exit Code: $LASTEXITCODE"
+                    -Wait *>&1
 
                 if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
                     $tid = [System.Threading.Thread]::CurrentThread.ManagedThreadId
                     Write-Debug "Completed Thread $tid : $($pargs.Name)"
+                    Write-Debug "Process Exit Code: $LASTEXITCODE"
                 }
 
                 [PSCustomObject]@{
@@ -237,7 +258,7 @@ function Invoke-Process {
             }
             catch {
                 Write-Error ($_ | Out-String)
-                return [PSCustomObject]@{
+                [PSCustomObject]@{
                     ExitCode  = -1
                     IsTimeout = $false
                 }
@@ -246,17 +267,17 @@ function Invoke-Process {
     } process {
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
+            Write-Debug "Waiting on ProcessJob $Name"
         }
 
-        Write-Debug "Waiting on ProcessJob $Name"
         Receive-Job $job -Wait
 
     } end {
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
+            Write-Debug "Removing ProcessJob $Name"
         }
 
-        Write-Debug "Removing ProcessJob $Name"
         Remove-Job $job
 
     }
