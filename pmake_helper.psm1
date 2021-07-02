@@ -58,6 +58,9 @@ function Write-Object {
             }
             $null = $sb.AppendLine($_.Message)
         }
+        elseif (($_ -is [PsCustomObject]) -and ($null -ne $_.ExitCode)) {
+            $LASTEXITCODE = $_.ExitCode
+        }
         elseif (($_ -is [System.Collections.IList]) -or ($_ -is [System.Array])) {               
             $message = $_ | Write-Object -RedirectError:$RedirectError
             $null = $sb.AppendLine($message)
@@ -71,13 +74,11 @@ function Write-Object {
         elseif ($_ -is [System.Management.Automation.VerboseRecord]) {
             Write-Verbose ($_ | Out-String)
         }
-        elseif (($_ -is [PsCustomObject]) -and ($_.ExitCode)) {
-            $LASTEXITCODE = $_.ExitCode
-        }
         else {
             $null = $sb.AppendLine((Out-String $_))
         }
-    } end {
+    } 
+    end {
         if ($sb.Length -gt 0) {
             if ($strm -eq 'Output') { 
                 Write-Host -ForegroundColor Gray $sb.ToString()
