@@ -172,7 +172,6 @@ function Invoke-CMake {
         -exe $cmake `
         -exe_args $cmake_args
     $trace = ('--trace' -in $cmake_args)
-    $LASTEXITCODE = -1
     Invoke-Process `
         -FilePath $cmake `
         -ArgumentList $cmake_args `

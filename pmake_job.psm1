@@ -12,7 +12,7 @@ function Invoke-Make {
         [Switch][Boolean] $export
     )
 
-    Write-Host -ForegroundColor Cyan "[PMake] Version 0.6"
+    Write-Host -ForegroundColor Cyan "[PMake] Version 0.7"
 
     $jobs = `
         Get-ChildItem "$env:VCPKG_OVERLAY_TRIPLETS/*.cmake" | `

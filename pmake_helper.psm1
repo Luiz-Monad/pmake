@@ -26,6 +26,23 @@ Export-ModuleMember -Function Set-ProcessTranscript *>&1 | Out-Null
 
 ###########################################################################################################################################
 
+class ProcessResult {
+    $ExitCode = -1
+}
+
+function New-ProcessResult {
+    param (
+        [string]$LogFile
+    )
+    New-Object ProcessResult -Property @{ 
+        ExitCode = $LASTEXITCODE
+    }    
+}
+
+Export-ModuleMember -Function New-ProcessResult *>&1 | Out-Null
+
+###########################################################################################################################################
+
 function Write-Object {
     [CmdLetBinding()]
     param (
@@ -38,6 +55,8 @@ function Write-Object {
     begin {
         $sb = New-Object System.Text.StringBuilder
         $strm = [System.Management.Automation.Language.RedirectionStream]::Output
+        $exitcode = -1
+        $GLOBAL:LASTEXITCODE = $exitcode
     }
     process {
         if ($_ -is [PowerProcess.InvokeProcessFastCommand+WrapObject]) {
@@ -58,8 +77,8 @@ function Write-Object {
             }
             $null = $sb.AppendLine($_.Message)
         }
-        elseif (($_ -is [PsCustomObject]) -and ($null -ne $_.ExitCode)) {
-            $LASTEXITCODE = $_.ExitCode
+        elseif ($_ -is [ProcessResult]) {
+            $exitcode = $_.ExitCode
         }
         elseif (($_ -is [System.Collections.IList]) -or ($_ -is [System.Array])) {               
             $message = $_ | Write-Object -RedirectError:$RedirectError
@@ -90,6 +109,7 @@ function Write-Object {
                 Write-Host -ForegroundColor Yellow $sb.ToString()
             }
         }
+        $GLOBAL:LASTEXITCODE = $exitcode
     }
 }
 
@@ -252,17 +272,11 @@ function Invoke-Process {
                     Write-Debug "Process Exit Code: $LASTEXITCODE"
                 }
 
-                [PSCustomObject]@{
-                    ExitCode  = $LASTEXITCODE
-                    IsTimeout = $false
-                }
+                New-ProcessResult -ExitCode $LASTEXITCODE
             }
             catch {
                 Write-Error ($_ | Out-String)
-                [PSCustomObject]@{
-                    ExitCode  = -1
-                    IsTimeout = $false
-                }
+                New-ProcessResult -ExitCode -1
             }
         }
     } process {
