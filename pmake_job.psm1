@@ -34,6 +34,9 @@ function Invoke-Make {
         }
         if ($export) {
 
+            Import-Module ($pargs.helper) -Force *>&1 | Out-Null
+            $pargs.Remove('helper')
+            
             Import-Module ($pargs.core) -Force *>&1 | Out-Null
             $pargs.Remove('core')
 
@@ -60,6 +63,7 @@ function Invoke-Make {
 
                 Invoke-Make @pargs
 
+                Set-ProcessTranscript $null
             }
             if (-not $no_parallel) {
                 Invoke-ThreadJob `

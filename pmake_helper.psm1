@@ -13,13 +13,16 @@ Import-Module $Script:ThreadJobModule -Force *>&1 | Out-Null
 
 ###########################################################################################################################################
 
-$Script:InvokeProcessTranscript = $null
+$Global:InvokeProcessTranscript = $null
 
 function Set-ProcessTranscript {
     param (
         [string]$LogFile
     )
-    $Script:InvokeProcessTranscript = $LogFile
+    $Global:InvokeProcessTranscript = $LogFile
+    if (Test-Path $Global:InvokeProcessTranscript) {
+        Remove-Item $Global:InvokeProcessTranscript
+    }
 }
 
 Export-ModuleMember -Function Set-ProcessTranscript *>&1 | Out-Null
@@ -53,36 +56,56 @@ function Write-Object {
         [Switch]$RedirectError = $false
     )
     begin {
+        if ($Global:InvokeProcessTranscript) {
+            $tf = [System.IO.File]::Open($Global:InvokeProcessTranscript, 
+                [System.IO.FileMode]::OpenOrCreate -bor [System.IO.FileMode]::Append, 
+                [System.IO.FileAccess]::Write, 
+                [System.IO.FileShare]::Read)
+            $tee = [System.IO.StreamWriter]::new($tf)
+            $tsb = New-Object System.Text.StringBuilder
+        }
         $sb = New-Object System.Text.StringBuilder
         $strm = [System.Management.Automation.Language.RedirectionStream]::Output
+        $last = (Get-Date)
         $exitcode = -1
         $GLOBAL:LASTEXITCODE = $exitcode
     }
     process {
         if ($_ -is [PowerProcess.InvokeProcessFastCommand+WrapObject]) {
-            if (($_.Stream -ne $strm) -and (-not $RedirectError)) {
+            $flush = ((Get-Date).Subtract($last)).TotalMilliseconds -gt 250
+            if ($flush -or (($_.Stream -ne $strm) -and (-not $RedirectError))) {
                 if ($sb.Length -gt 0) {
+                    $sbs = $sb.ToString()
                     if ($strm -eq 'Output') { 
-                        Write-Host -ForegroundColor Gray $sb.ToString()
+                        Write-Host -ForegroundColor Gray $sbs
                     }
                     elseif ($strm -eq 'Error') { 
-                        Write-Host -ForegroundColor Red $sb.ToString()
+                        Write-Host -ForegroundColor Red $sbs
                     }
                     else { 
-                        Write-Host -ForegroundColor Yellow $sb.ToString()
+                        Write-Host -ForegroundColor Yellow $sbs
                     }
+                    if ($tee) {
+                        $null = $tsb.AppendLine($sbs)
+                        if ($tsb.Length -gt 65536) {
+                            $null = $tee.Write($tsb.ToString())
+                            $tsb = New-Object System.Text.StringBuilder
+                        }
+                    }                    
                     $sb = New-Object System.Text.StringBuilder
                 }
                 $strm = $_.Stream
             }
-            $null = $sb.AppendLine($_.Message)
+            elseif ($sb.Length -gt 0) {
+                $null = $sb.AppendLine()
+            }
+            $null = $sb.Append($_.Message)
         }
         elseif ($_ -is [ProcessResult]) {
             $exitcode = $_.ExitCode
         }
-        elseif (($_ -is [System.Collections.IList]) -or ($_ -is [System.Array])) {               
-            $message = $_ | Write-Object -RedirectError:$RedirectError
-            $null = $sb.AppendLine($message)
+        elseif (($_ -is [System.Collections.IList]) -or ($_ -is [System.Array])) {
+            $_ | Write-Object -RedirectError:$RedirectError
         }
         elseif ($_ -is [System.Management.Automation.ErrorRecord]) {
             Write-Error ($_ | Out-String)
@@ -99,15 +122,26 @@ function Write-Object {
     } 
     end {
         if ($sb.Length -gt 0) {
+            $sbs = $sb.ToString()
             if ($strm -eq 'Output') { 
-                Write-Host -ForegroundColor Gray $sb.ToString()
+                Write-Host -ForegroundColor Gray $sbs
             }
             elseif ($strm -eq 'Error') { 
-                Write-Host -ForegroundColor Red $sb.ToString()
+                Write-Host -ForegroundColor Red $sbs
             }
             else { 
-                Write-Host -ForegroundColor Yellow $sb.ToString()
+                Write-Host -ForegroundColor Yellow $sbs
             }
+        }
+        if ($tee) {
+            $null = $tsb.AppendLine($sb.ToString())
+            if ($tsb.Length -gt 0) {
+                $null = $tee.Write($tsb.ToString())
+            }
+            $null = $tee.Close()
+            $null = $tf.Close()
+            $tee = $null
+            $tf = $null
         }
         $GLOBAL:LASTEXITCODE = $exitcode
     }
