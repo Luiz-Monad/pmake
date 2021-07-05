@@ -250,8 +250,9 @@ function Invoke-Make {
         [String] $abi,
         [String] $conf,
         [String] $proj_root,
-        [Switch][Boolean] $trace,
-        [Switch][Boolean] $trycompile
+        [Switch] $trace,
+        [Switch] $debug_trycompile,
+        [Switch] $debug_find
     )
 
     Write-Log "[PMake] Building $abi"
@@ -285,15 +286,19 @@ function Invoke-Make {
         Push-Arguments '-A' (Get-MsVcArch $env.abi)
     }
     else {
+        Push-Arguments '-D' "CMAKE_BUILD_TYPE=$($env.conf)"
         Push-Arguments '-D' "CMAKE_MAKE_PROGRAM=$(Get-Ninja)"
         Push-Arguments '-G' 'Ninja'
     }
     if ($trace) {
         Push-Arguments '--trace'
     }
-    if ($trycompile) {
+    if ($debug_trycompile) {
         Push-Arguments '--debug-trycompile'
-    }    
+    }
+    if ($debug_find) {
+        Push-Arguments '--debug-find'
+    }
     Invoke-CMake -cmake (Get-CMake)
     if ($LASTEXITCODE -ne 0) { return }
 
@@ -338,8 +343,9 @@ function Export-CMakeSettings {
         [String] $abi,
         [String] $conf,
         [String] $proj_root,
-        [Switch][Boolean] $trace,
-        [Switch][Boolean] $trycompile
+        [Switch] $trace,
+        [Switch] $debug_trycompile,
+        [Switch] $debug_find
     )
 
     Write-Log "[PMake] Exporting $abi-$conf"

@@ -6,10 +6,11 @@ function Invoke-Make {
     param (
         [String] $root,
         [ScriptBlock] $filter,
-        [Switch][Boolean] $no_parallel,
-        [Switch][Boolean] $trace,
-        [Switch][Boolean] $trycompile,
-        [Switch][Boolean] $export
+        [Switch] $no_parallel,
+        [Switch] $export,
+        [Switch] $trace,
+        [Switch] $debug_trycompile,
+        [Switch] $debug_find
     )
 
     Write-Host -ForegroundColor Cyan "[PMake] Version 0.7"
@@ -22,15 +23,16 @@ function Invoke-Make {
         ForEach-Object `
     {
         $pargs = @{
-            abi        = ($_ -split "-(rel|dbg)")[0]
-            conf       = if ($_ -like "*-dbg") { 'debug' } else { 'release' }
-            core       = "$PSScriptRoot/make_cmake.psm1"
-            helper     = "$PSScriptRoot/pmake_helper.psm1"
-            proj_root  = $root
-            trace      = $trace
-            trycompile = $trycompile
-            Verbose    = $VerbosePreference
-            Debug      = $DebugPreference
+            abi              = ($_ -split "-(rel|dbg)")[0]
+            conf             = if ($_ -like "*-dbg") { 'debug' } else { 'release' }
+            core             = "$PSScriptRoot/make_cmake.psm1"
+            helper           = "$PSScriptRoot/pmake_helper.psm1"
+            proj_root        = $root
+            trace            = $trace
+            debug_trycompile = $debug_trycompile
+            debug_find       = $debug_find
+            Verbose          = $VerbosePreference
+            Debug            = $DebugPreference
         }
         if ($export) {
 

@@ -6,12 +6,13 @@ function Invoke-PMake {
     param (
         [String] $target = $null,
         [String] $root = $null,
-        [Switch][Boolean] $dbg,
-        [Switch][Boolean] $all,
-        [Switch][Boolean] $no_parallel,
-        [Switch][Boolean] $trace,
-        [Switch][Boolean] $trycompile,
-        [Switch][Boolean] $export
+        [Switch] $dbg,
+        [Switch] $all,
+        [Switch] $no_parallel,
+        [Switch] $export,
+        [Switch] $trace,
+        [Switch] $debug_trycompile,
+        [Switch] $debug_find
     )
 
     if (-not $root) {
@@ -35,9 +36,10 @@ function Invoke-PMake {
         -root:$root `
         -filter:$filter `
         -no_parallel:$no_parallel `
-        -trace:$trace `
-        -trycompile:$trycompile `
         -export:$export `
+        -trace:$trace `
+        -debug_trycompile:$debug_trycompile `
+        -debug_find:$debug_find `
         -Verbose:$VerbosePreference `
         -Debug:$DebugPreference
 
