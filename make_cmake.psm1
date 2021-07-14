@@ -3,11 +3,11 @@ Import-Module "$PSScriptRoot/pmake_helper.psm1" -Force *>&1 | Out-Null
 
 $script:_args = @()
 
-function Clear-Arguments { 
+function Clear-Arguments {
     $script:_args = $Null
 }
 
-function Push-Arguments { 
+function Push-Arguments {
     param($k, $v = $null)
     $script:_args = $script:_args + @($k)
     if ($v) {
@@ -15,7 +15,7 @@ function Push-Arguments {
     }
 }
 
-function Get-Arguments { 
+function Get-Arguments {
     $_args = $script:_args
     $script:_args = $Null
     $_args
@@ -89,7 +89,7 @@ function Enter-DevShell {
     Pop-Location
 }
 
-function Write-Log { 
+function Write-Log {
     param($obj, [Switch] $success)
     if ($success) {
         Write-Host -ForegroundColor Green $obj
@@ -102,13 +102,13 @@ function Write-Log {
 function Write-Arguments {
     param($exe, $exe_args)
     $l = @($exe);
-    $exe_args | ForEach-Object { 
-        if ($_.StartsWith('-')) { 
+    $exe_args | ForEach-Object {
+        if ($_.StartsWith('-')) {
             Write-Log "$l"; $l = @($_)
         }
-        else { 
-            $l = $l + @($_) 
-        } 
+        else {
+            $l = $l + @($_)
+        }
     }
     Write-Log "$l"
 }
@@ -163,7 +163,7 @@ function Get-MsVcIntellisense {
     }
 }
 
-function Invoke-CMake { 
+function Invoke-CMake {
     [CmdLetBinding()] param (
         [Parameter(Mandatory = $true)][String] $cmake
     )
@@ -181,21 +181,21 @@ function Invoke-CMake {
         Write-Object -RedirectError:$trace
 }
 
-function New-Environment { 
+function New-Environment {
     [CmdletBinding()]
     param (
         [String] $abi,
         [String] $conf,
         [String] $proj_root
     )
- 
+
     # options
 
     $is_android = "$abi".Contains('android')
     $is_windows = "$abi".Contains('win')
     $is_emscripten = "$abi".Contains('wasm')
     $is_msvc = "$abi".Contains('msvc')
-   
+
     # project overriden parameters:
 
     Push-Location $proj_root
@@ -219,7 +219,7 @@ function New-Environment {
     # modified: 'defines'
 
     # environment
-    
+
     $out = $env:P_project_output
     $build = $env:P_project_build
 
@@ -278,10 +278,10 @@ function Invoke-Make {
     Clear-Arguments
     Push-Arguments     '-S' $env.src
     Push-Arguments     '-B' $env.tgt
-    foreach ($def in $env.proj_defines) { 
-        Push-Arguments '-D' $def 
+    foreach ($def in $env.proj_defines) {
+        Push-Arguments '-D' $def
     }
-    if ($env.is_msvc) { 
+    if ($env.is_msvc) {
         Push-Arguments '-G' 'Visual Studio 16 2019'
         Push-Arguments '-A' (Get-MsVcArch $env.abi)
     }
@@ -305,7 +305,7 @@ function Invoke-Make {
     # make
 
     Write-Log "[PMake] Making $tri"
-    
+
     Clear-Arguments
     Push-Arguments '--build' $env.tgt
     Push-Arguments '--config' $env.conf
@@ -319,9 +319,9 @@ function Invoke-Make {
     if ($LASTEXITCODE -ne 0) { return }
 
     # deploy
-    
+
     Write-Log "[PMake] Deploy $tri"
-    
+
     Clear-Arguments
     Push-Arguments '--install' $env.tgt
     Push-Arguments '--config' $env.conf
@@ -330,7 +330,7 @@ function Invoke-Make {
     if ($LASTEXITCODE -ne 0) { return }
 
     # done
-    
+
     Write-Log -Success "[PMake] Build $tri Ok"
 
 }
@@ -358,7 +358,7 @@ function Export-CMakeSettings {
         -conf $conf `
         -proj_root $proj_root
 
-    if ($x.is_msvc) { 
+    if ($x.is_msvc) {
         $arch = (Get-MsVcGArch -abi $abi)
         $generator = "Visual Studio 16 2019 $arch".Trim()
         $intellisense = (Get-MsVcIntellisense -abi $abi)

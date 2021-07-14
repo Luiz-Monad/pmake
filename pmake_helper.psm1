@@ -4,8 +4,8 @@ $Script:PowerProcessModule = "$PSScriptRoot/native/PowerProcess.dll"
 $Script:ThreadJobModule = "$PSScriptRoot/native/Microsoft.PowerShell.ThreadJob.dll"
 
 $Script:Dependencies = @(
-    $Script:SelfModule, 
-    $Script:ThreadJobModule, 
+    $Script:SelfModule,
+    $Script:ThreadJobModule,
     $Script:PowerProcessModule)
 
 Import-Module $Script:PowerProcessModule -Force *>&1 | Out-Null
@@ -37,9 +37,9 @@ function New-ProcessResult {
     param (
         [string]$LogFile
     )
-    New-Object ProcessResult -Property @{ 
+    New-Object ProcessResult -Property @{
         ExitCode = $LASTEXITCODE
-    }    
+    }
 }
 
 Export-ModuleMember -Function New-ProcessResult *>&1 | Out-Null
@@ -57,9 +57,9 @@ function Write-Object {
     )
     begin {
         if ($Global:InvokeProcessTranscript) {
-            $tf = [System.IO.File]::Open($Global:InvokeProcessTranscript, 
-                [System.IO.FileMode]::OpenOrCreate -bor [System.IO.FileMode]::Append, 
-                [System.IO.FileAccess]::Write, 
+            $tf = [System.IO.File]::Open($Global:InvokeProcessTranscript,
+                [System.IO.FileMode]::OpenOrCreate -bor [System.IO.FileMode]::Append,
+                [System.IO.FileAccess]::Write,
                 [System.IO.FileShare]::Read)
             $tee = [System.IO.StreamWriter]::new($tf)
             $tsb = New-Object System.Text.StringBuilder
@@ -76,13 +76,13 @@ function Write-Object {
             if ($flush -or (($_.Stream -ne $strm) -and (-not $RedirectError))) {
                 if ($sb.Length -gt 0) {
                     $sbs = $sb.ToString()
-                    if ($strm -eq 'Output') { 
+                    if ($strm -eq 'Output') {
                         Write-Host -ForegroundColor Gray $sbs
                     }
-                    elseif ($strm -eq 'Error') { 
+                    elseif ($strm -eq 'Error') {
                         Write-Host -ForegroundColor Red $sbs
                     }
-                    else { 
+                    else {
                         Write-Host -ForegroundColor Yellow $sbs
                     }
                     if ($tee) {
@@ -91,7 +91,7 @@ function Write-Object {
                             $null = $tee.Write($tsb.ToString())
                             $tsb = New-Object System.Text.StringBuilder
                         }
-                    }                    
+                    }
                     $sb = New-Object System.Text.StringBuilder
                 }
                 $strm = $_.Stream
@@ -119,17 +119,17 @@ function Write-Object {
         else {
             $null = $sb.AppendLine((Out-String $_))
         }
-    } 
+    }
     end {
         if ($sb.Length -gt 0) {
             $sbs = $sb.ToString()
-            if ($strm -eq 'Output') { 
+            if ($strm -eq 'Output') {
                 Write-Host -ForegroundColor Gray $sbs
             }
-            elseif ($strm -eq 'Error') { 
+            elseif ($strm -eq 'Error') {
                 Write-Host -ForegroundColor Red $sbs
             }
-            else { 
+            else {
                 Write-Host -ForegroundColor Yellow $sbs
             }
         }
@@ -160,12 +160,15 @@ function Invoke-ThreadJob {
 
         [Parameter(Mandatory = $false, Position = 1)]
         [hashtable]$ArgumentList = @(),
-        
+
         [Parameter(Mandatory = $false, Position = 3)]
         [string]$Name = "",
 
         [Parameter(Mandatory = $false, Position = 4)]
-        [TimeSpan]$Timeout = [System.TimeSpan]::FromMinutes(2)
+        [TimeSpan]$Timeout = [System.TimeSpan]::FromMinutes(2),
+
+        [Parameter(Mandatory = $false, Position = 5)]
+        [switch]$NoWait
     )
     begin {
         $pargs = @{
@@ -214,6 +217,7 @@ function Invoke-ThreadJob {
             }
         }
     } process {
+        if ($NoWait) { return }
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
             Write-Debug "Waiting on ThreadJob $Name"
@@ -222,6 +226,7 @@ function Invoke-ThreadJob {
         Receive-Job $job -Wait
 
     } end {
+        if ($NoWait) { return }
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
             Write-Debug "Removing ThreadJob $Name"
@@ -245,7 +250,7 @@ function Invoke-Process {
 
         [Parameter(Mandatory = $false, Position = 1)]
         [string[]]$ArgumentList = @(),
-        
+
         [Parameter(Mandatory = $false, Position = 2)]
         [string]$WorkingDirectory = ".",
 

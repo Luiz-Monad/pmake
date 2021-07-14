@@ -13,7 +13,7 @@ function Invoke-Make {
         [Switch] $debug_find
     )
 
-    Write-Host -ForegroundColor Cyan "[PMake] Version 0.7"
+    Write-Host -ForegroundColor Cyan "[PMake] Version 0.9"
 
     $jobs = `
         Get-ChildItem "$env:VCPKG_OVERLAY_TRIPLETS/*.cmake" | `
@@ -38,7 +38,7 @@ function Invoke-Make {
 
             Import-Module ($pargs.helper) -Force *>&1 | Out-Null
             $pargs.Remove('helper')
-            
+
             Import-Module ($pargs.core) -Force *>&1 | Out-Null
             $pargs.Remove('core')
 
@@ -48,7 +48,7 @@ function Invoke-Make {
         else {
             $block = [ScriptBlock] {
                 [CmdletBinding()]
-                param ($pargs) 
+                param ($pargs)
 
                 Import-Module ($pargs.helper) -Force *>&1 | Out-Null
                 $pargs.Remove('helper')
@@ -73,7 +73,8 @@ function Invoke-Make {
                     -Debug:$DebugPreference `
                     -Name "InvokeMake" `
                     -ScriptBlock $block `
-                    -ArgumentList $pargs
+                    -ArgumentList $pargs `
+                    -NoWait
             }
             else {
                 & $block $pargs
@@ -82,10 +83,18 @@ function Invoke-Make {
     }
     if ($export) {
         $src = ($jobs.environments[0].P_project_source)
-        ConvertTo-Json -Depth 5 @{ 
+        ConvertTo-Json -Depth 5 @{
             environments   = @(, $jobs.environments[0])
             configurations = $jobs.configurations
         } | Out-File "$src/CMakeSettings.json"
+    }
+    else {
+        if (-not $no_parallel) {
+            $jobs = $jobs | Receive-Job -Wait -AutoRemoveJob
+        }
+        else {
+            $jobs
+        }
     }
 }
 

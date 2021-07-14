@@ -17,6 +17,8 @@ $build_path = (Get-Item $build).FullName
     $proj_build_path = "$build_path/outputs"
 $out_path = (Get-Item $out).FullName
 
+###########################################################################################################################################
+
 # Specify the target architecture triplet. See 'vcpkg help triplet'
 New-Item -Path env: -Name VCPKG_DEFAULT_TRIPLET -Value x64-windows-static
 
@@ -41,8 +43,7 @@ New-Item -Path env: -Name VCPKG_DEFAULT_BINARY_CACHE -Value $cache_path
 # Numer of CPUs to use.
 New-Item -Path env: -Name VCPKG_MAX_CONCURRENCY -Value 16
 
-
-
+###########################################################################################################################################
 
 # Specify the buildtrees root directory
 New-Item -Path env: -Name X_buildtrees_root -Value "$build_path/buildtrees"
@@ -53,8 +54,7 @@ New-Item -Path env: -Name X_install_root -Value "$build_path/install"
 # Specify the packages root directory
 New-Item -Path env: -Name X_packages_root -Value "$build_path/packages"
 
-
-
+###########################################################################################################################################
 
 # Specify the intermediate output directory
 New-Item -Path env: -Name P_project_build -Value $proj_build_path
@@ -62,7 +62,9 @@ New-Item -Path env: -Name P_project_build -Value $proj_build_path
 # Specify the final output directory
 New-Item -Path env: -Name P_project_output -Value $out_path
 
-function vcpkg { 
+###########################################################################################################################################
+
+function vcpkg {
     [CmdLetBinding()] param (
         [Parameter()][String] $target = $null,
         [Parameter(Mandatory = $true, Position = 0, ValueFromRemainingArguments)] $vcpkg_args
@@ -77,12 +79,14 @@ function vcpkg {
     & "$env:VCPKG_ROOT/vcpkg.exe" $fargs
 }
 
+###########################################################################################################################################
+
 function vcpkg_patch_apply {
     # Apply patches from the ports to the local repository.
     param ($reset = $false, $commit = $true)
-    if (-not (Test-Path "vcpkg.json")) { 
+    if (-not (Test-Path "vcpkg.json")) {
         Write-Error "vcpkg manifest not found"
-        return 
+        return
     }
     $vcpkg = Get-Content "vcpkg.json" | ConvertFrom-Json
     if ($reset) {
@@ -90,10 +94,10 @@ function vcpkg_patch_apply {
     }
     $port = $vcpkg.name
     $s = Get-ChildItem "$env:VCPKG_OVERLAY_PORTS/$port/*.patch" | Sort-Object
-    foreach ($i in $s) { 
+    foreach ($i in $s) {
         Write-Host -ForegroundColor Cyan $i
         git apply $i --verbose
-        if ($LASTEXITCODE -ne 0) {throw $LASTEXITCODE} 
+        if ($LASTEXITCODE -ne 0) {throw $LASTEXITCODE}
     }
     if ($commit) {
         git add *
@@ -105,8 +109,8 @@ function vcpkg_refresh_port_overlay {
     # Copy ports to the overlay for used packages.
     $p = $env:VCPKG_OVERLAY_PORTS
     Get-ChildItem $env:X_buildtrees_root `
-        -Exclude @('detect_compiler') | 
-        Select-Object -Expand name | ForEach-Object { 
+        -Exclude @('detect_compiler') |
+        Select-Object -Expand name | ForEach-Object {
             Write-Host $_
             if (-not (Test-Path "$p/$_")) {
                 Copy-Item "$env:VCPKG_ROOT/ports/$_" `
@@ -114,3 +118,5 @@ function vcpkg_refresh_port_overlay {
             }
         }
 }
+
+###########################################################################################################################################
