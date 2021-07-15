@@ -1,6 +1,18 @@
 
 Import-Module "$PSScriptRoot/pmake_helper.psm1" -Force *>&1 | Out-Null
 
+function Write-Log {
+    param($obj, [Switch] $success)
+    if ($success) {
+        Write-Host -ForegroundColor Green $obj
+    }
+    else {
+        Write-Host -ForegroundColor Cyan $obj
+    }
+}
+
+###########################################################################################################################################
+
 $script:_args = @()
 
 function Clear-Arguments {
@@ -20,6 +32,22 @@ function Get-Arguments {
     $script:_args = $Null
     $_args
 }
+
+function Write-Arguments {
+    param($exe, $exe_args)
+    $l = @($exe);
+    $exe_args | ForEach-Object {
+        if ($_.StartsWith('-')) {
+            Write-Log "$l"; $l = @($_)
+        }
+        else {
+            $l = $l + @($_)
+        }
+    }
+    Write-Log "$l"
+}
+
+###########################################################################################################################################
 
 function Get-VsWhere {
     param (
@@ -89,29 +117,7 @@ function Enter-DevShell {
     Pop-Location
 }
 
-function Write-Log {
-    param($obj, [Switch] $success)
-    if ($success) {
-        Write-Host -ForegroundColor Green $obj
-    }
-    else {
-        Write-Host -ForegroundColor Cyan $obj
-    }
-}
-
-function Write-Arguments {
-    param($exe, $exe_args)
-    $l = @($exe);
-    $exe_args | ForEach-Object {
-        if ($_.StartsWith('-')) {
-            Write-Log "$l"; $l = @($_)
-        }
-        else {
-            $l = $l + @($_)
-        }
-    }
-    Write-Log "$l"
-}
+###########################################################################################################################################
 
 function Get-MsVcArch {
     param([String] $abi)
@@ -163,6 +169,8 @@ function Get-MsVcIntellisense {
     }
 }
 
+###########################################################################################################################################
+
 function Invoke-CMake {
     [CmdLetBinding()] param (
         [Parameter(Mandatory = $true)][String] $cmake
@@ -180,6 +188,8 @@ function Invoke-CMake {
         -Debug:$DebugPreference | `
         Write-Object -RedirectError:$trace
 }
+
+###########################################################################################################################################
 
 function New-Environment {
     [CmdletBinding()]
@@ -243,6 +253,8 @@ function New-Environment {
     }
 
 }
+
+###########################################################################################################################################
 
 function Invoke-Make {
     [CmdletBinding()]
@@ -337,6 +349,8 @@ function Invoke-Make {
 
 Export-ModuleMember -Function Invoke-Make *>&1 | Out-Null
 
+###########################################################################################################################################
+
 function Export-CMakeSettings {
     [CmdletBinding()]
     param (
@@ -416,3 +430,5 @@ function Export-CMakeSettings {
 }
 
 Export-ModuleMember -Function Export-CMakeSettings *>&1 | Out-Null
+
+###########################################################################################################################################
