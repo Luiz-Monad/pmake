@@ -13,16 +13,22 @@ Import-Module $Script:ThreadJobModule -Force *>&1 | Out-Null
 
 ###########################################################################################################################################
 
-$Global:InvokeProcessTranscript = $null
-
 function Set-ProcessTranscript {
     param (
         [string]$LogFile
     )
-    $Global:InvokeProcessTranscript = $LogFile
-    if (Test-Path $Global:InvokeProcessTranscript) {
-        Remove-Item $Global:InvokeProcessTranscript
+    $slot = [System.Threading.Thread]::GetNamedDataSlot("PmakeProcessTranscript")
+    [System.Threading.Thread]::SetData($slot, $null)
+    if (Test-Path $LogFile) {
+        Remove-Item $LogFile
     }
+    [System.Threading.Thread]::SetData($slot, $LogFile)
+}
+
+function Get-ProcessTranscript {
+    param ()
+    $slot = [System.Threading.Thread]::GetNamedDataSlot("PmakeProcessTranscript")
+    [System.Threading.Thread]::GetData($slot)
 }
 
 Export-ModuleMember -Function Set-ProcessTranscript *>&1 | Out-Null
@@ -56,8 +62,9 @@ function Write-Object {
         [Switch]$RedirectError = $false
     )
     begin {
-        if ($Global:InvokeProcessTranscript) {
-            $tf = [System.IO.File]::Open($Global:InvokeProcessTranscript,
+        $transcript = (Get-ProcessTranscript)
+        if ($transcript) {
+            $tf = [System.IO.File]::Open($transcript,
                 [System.IO.FileMode]::OpenOrCreate -bor [System.IO.FileMode]::Append,
                 [System.IO.FileAccess]::Write,
                 [System.IO.FileShare]::Read)
@@ -217,7 +224,7 @@ function Invoke-ThreadJob {
             }
         }
     } process {
-        if ($NoWait) { return }
+        if ($NoWait) { return $job }
         if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
             Write-Debug (Get-Job | Out-String)
             Write-Debug "Waiting on ThreadJob $Name"

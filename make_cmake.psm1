@@ -278,6 +278,7 @@ function Invoke-Make {
     # tool environment
 
     if ($env.is_msvc) {
+        Write-Debug "Entering MSVC DevShell"
         Enter-DevShell
     }
 
