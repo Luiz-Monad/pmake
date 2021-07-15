@@ -109,12 +109,24 @@ function Get-VsInstallPath {
 }
 
 function Enter-DevShell {
+    [CmdLetBinding()] param ()
+
     $module = Get-DevShell
-    $vsinstall = Get-VsInstallPath
     Import-module $module | Out-Null
+    $vsinstall = Get-VsInstallPath
+
+    Write-Debug "Entering MSVC DevShell"
+    $before = Get-Item env:
+    
     Push-Location
     Enter-VsDevShell -VsInstallPath $vsinstall | Out-Null
     Pop-Location
+
+    if ($DebugPreference -notmatch '(Ignore|SilentlyContinue)') {
+        $after = Get-Item env:
+        $diff = $after | Where-Object { $_ -notin $before }
+        $diff | Format-Table | Out-String | Write-Debug
+    }
 }
 
 ###########################################################################################################################################
@@ -282,8 +294,7 @@ function Invoke-Make {
     # tool environment
 
     if ($env.is_msvc) {
-        Write-Debug "Entering MSVC DevShell"
-        Enter-DevShell
+        Enter-DevShell #-Debug
     }
 
     $tri = "$($env.proj_name)-$($env.abi)-$($env.conf)"
