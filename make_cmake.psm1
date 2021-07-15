@@ -162,6 +162,10 @@ function Get-MsVcIntellisense {
         ('msvc-windows-x86') { 'windows-msvc-x86' }
         ('msvc-windows-aarch64') { 'windows-msvc-arm64' }
         ('msvc-windows-armeabi') { 'windows-msvc-arm' }
+        ('clang-windows-amd64') { 'windows-clang-x64' }
+        ('clang-windows-x86') { 'windows-clang-x86' }
+        ('clang-windows-aarch64') { 'windows-clang-arm64' }
+        ('clang-windows-armeabi') { 'windows-clang-arm' }
         ('clang-ios-amd64') { 'ios-clang-x64' }
         ('clang-ios-x86') { 'ios-clang-x86' }
         ('clang-ios-aarch64') { 'ios-clang-arm64' }
@@ -373,10 +377,11 @@ function Export-CMakeSettings {
         -conf $conf `
         -proj_root $proj_root
 
+    $intellisense = (Get-MsVcIntellisense -abi $abi)
+
     if ($x.is_msvc) {
         $arch = (Get-MsVcGArch -abi $abi)
         $generator = "Visual Studio 16 2019 $arch".Trim()
-        $intellisense = (Get-MsVcIntellisense -abi $abi)
     }
     else {
         $x.proj_defines = $x.proj_defines + @("CMAKE_MAKE_PROGRAM=$(Get-Ninja)")
