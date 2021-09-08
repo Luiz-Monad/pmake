@@ -65,7 +65,8 @@ New-Item -Path env: -Name P_project_output -Value $out_path
 ###########################################################################################################################################
 
 function vcpkg {
-    [CmdLetBinding()] param (
+    [CmdLetBinding()] 
+    param (
         [Parameter()][String] $target = $null,
         [Parameter(Mandatory = $true, Position = 0, ValueFromRemainingArguments)] $vcpkg_args
     )
@@ -117,6 +118,39 @@ function vcpkg_refresh_port_overlay {
                     -Destination $p -Recurse -Force -Verbose
             }
         }
+}
+
+###########################################################################################################################################
+
+Import-Module "$PSScriptRoot/pmake.psm1" -Force *>&1 | Out-Null
+
+function pmake {
+    [CmdletBinding()]
+    param (
+        [String] $root = $null,
+        [String] $target = $null,
+        [Switch] $dbg,
+        [Switch] $all,
+        [Switch] $no_parallel,
+        [Switch] $export,
+        [Switch] $trace,
+        [Switch] $trace_expand,
+        [Switch] $debug_trycompile,
+        [Switch] $debug_find
+    )
+    Invoke-PMake `
+        -root:$root `
+        -target:$target `
+        -dbg:$dbg `
+        -all:$all `
+        -no_parallel:$no_parallel `
+        -export:$export `
+        -trace:$trace `
+        -trace_expand:$trace_expand `
+        -debug_trycompile:$debug_trycompile `
+        -debug_find:$debug_find `
+        -Verbose:$VerbosePreference `
+        -Debug:$DebugPreference
 }
 
 ###########################################################################################################################################

@@ -279,6 +279,7 @@ function Invoke-Make {
         [String] $conf,
         [String] $proj_root,
         [Switch] $trace,
+        [Switch] $trace_expand,
         [Switch] $debug_trycompile,
         [Switch] $debug_find
     )
@@ -320,6 +321,9 @@ function Invoke-Make {
     }
     if ($trace) {
         Push-Arguments '--trace'
+    }
+    if ($trace_expand) {
+        Push-Arguments '--trace-expand'
     }
     if ($debug_trycompile) {
         Push-Arguments '--debug-trycompile'
@@ -374,6 +378,7 @@ function Export-CMakeSettings {
         [String] $conf,
         [String] $proj_root,
         [Switch] $trace,
+        [Switch] $trace_expand,
         [Switch] $debug_trycompile,
         [Switch] $debug_find
     )

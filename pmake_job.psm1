@@ -9,6 +9,7 @@ function Invoke-Make {
         [Switch] $no_parallel,
         [Switch] $export,
         [Switch] $trace,
+        [Switch] $trace_expand,
         [Switch] $debug_trycompile,
         [Switch] $debug_find
     )
@@ -29,6 +30,7 @@ function Invoke-Make {
             helper           = "$PSScriptRoot/pmake_helper.psm1"
             proj_root        = $root
             trace            = $trace
+            trace_expand     = $trace_expand
             debug_trycompile = $debug_trycompile
             debug_find       = $debug_find
             Verbose          = $VerbosePreference

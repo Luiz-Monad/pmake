@@ -11,6 +11,7 @@ function Invoke-PMake {
         [Switch] $no_parallel,
         [Switch] $export,
         [Switch] $trace,
+        [Switch] $trace_expand,
         [Switch] $debug_trycompile,
         [Switch] $debug_find
     )
@@ -38,6 +39,7 @@ function Invoke-PMake {
         -no_parallel:$no_parallel `
         -export:$export `
         -trace:$trace `
+        -trace_expand:$trace_expand `
         -debug_trycompile:$debug_trycompile `
         -debug_find:$debug_find `
         -Verbose:$VerbosePreference `
