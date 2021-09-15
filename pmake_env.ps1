@@ -120,6 +120,19 @@ function vcpkg_refresh_port_overlay {
         }
 }
 
+function vcpkg_export_port_overlay {
+    # Export thirdyparties as port overlays.
+    $p = $env:VCPKG_OVERLAY_PORTS
+    Get-ChildItem $thirdy_path -Recurse -Depth 1 -Include 'pmake_def.psm1' |
+        ForEach-Object {
+            Write-Host $_
+            if (-not (Test-Path "$p/$_")) {
+                Copy-Item "$env:VCPKG_ROOT/ports/$_" `
+                    -Destination $p -Recurse -Force -Verbose
+            }
+        }
+}
+
 ###########################################################################################################################################
 
 Import-Module "$PSScriptRoot/pmake.psm1" -Force *>&1 | Out-Null
