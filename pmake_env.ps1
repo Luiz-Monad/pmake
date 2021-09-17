@@ -80,58 +80,7 @@ function vcpkg {
     & "$env:VCPKG_ROOT/vcpkg.exe" $fargs
 }
 
-###########################################################################################################################################
-
-function vcpkg_patch_apply {
-    # Apply patches from the ports to the local repository.
-    param ($reset = $false, $commit = $true)
-    if (-not (Test-Path "vcpkg.json")) {
-        Write-Error "vcpkg manifest not found"
-        return
-    }
-    $vcpkg = Get-Content "vcpkg.json" | ConvertFrom-Json
-    if ($reset) {
-        git reset --hard HEAD
-    }
-    $port = $vcpkg.name
-    $s = Get-ChildItem "$env:VCPKG_OVERLAY_PORTS/$port/*.patch" | Sort-Object
-    foreach ($i in $s) {
-        Write-Host -ForegroundColor Cyan $i
-        git apply $i --verbose
-        if ($LASTEXITCODE -ne 0) {throw $LASTEXITCODE}
-    }
-    if ($commit) {
-        git add *
-        git commit -m "patched"
-    }
-}
-
-function vcpkg_refresh_port_overlay {
-    # Copy ports to the overlay for used packages.
-    $p = $env:VCPKG_OVERLAY_PORTS
-    Get-ChildItem $env:X_buildtrees_root `
-        -Exclude @('detect_compiler') |
-        Select-Object -Expand name | ForEach-Object {
-            Write-Host $_
-            if (-not (Test-Path "$p/$_")) {
-                Copy-Item "$env:VCPKG_ROOT/ports/$_" `
-                    -Destination $p -Recurse -Force -Verbose
-            }
-        }
-}
-
-function vcpkg_export_port_overlay {
-    # Export thirdyparties as port overlays.
-    $p = $env:VCPKG_OVERLAY_PORTS
-    Get-ChildItem $thirdy_path -Recurse -Depth 1 -Include 'pmake_def.psm1' |
-        ForEach-Object {
-            Write-Host $_
-            if (-not (Test-Path "$p/$_")) {
-                Copy-Item "$env:VCPKG_ROOT/ports/$_" `
-                    -Destination $p -Recurse -Force -Verbose
-            }
-        }
-}
+Import-Module "$PSScriptRoot/pmake_vcpkg.psm1" -Force *>&1 | Out-Null
 
 ###########################################################################################################################################
 
