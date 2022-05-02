@@ -80,7 +80,10 @@ function Get-CMake {
             -component 'Microsoft.VisualStudio.Component.VC.CMake.Project' `
             -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/**/cmake.exe'
         if (-not $script:_cmake) {
-            $script:_cmake = & 'which' 'cmake'
+            $script:_cmake = (
+                Get-ChildItem $env:VCPKG_DOWNLOADS -Recurse -Filter "cmake" |
+                Where-Object { $_ -like '*/bin/*' }
+            ).FullName
         }
     }
     $script:_cmake
@@ -92,7 +95,9 @@ function Get-Ninja {
             -component 'Microsoft.VisualStudio.Component.VC.CMake.Project' `
             -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/**/ninja.exe'
         if (-not $script:_ninja) {
-            $script:_ninja = & 'which' 'ninja'
+            $script:_ninja = (
+                Get-ChildItem $env:VCPKG_DOWNLOADS -Recurse -Include 'ninja'
+            ).FullName
         }
     }
     $script:_ninja
@@ -326,6 +331,7 @@ function Invoke-Make {
         Push-Arguments '-D' "CMAKE_MAKE_PROGRAM=$(Get-Ninja)"
         Push-Arguments '-G' 'Ninja'
     }
+    Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$($env.out)"
     if ($trace) {
         Push-Arguments '--trace'
     }
@@ -349,8 +355,6 @@ function Invoke-Make {
     Push-Arguments '--build' $env.tgt
     Push-Arguments '--config' $env.conf
     Push-Arguments '--parallel' "$($env.pjob)"
-    Push-Arguments '-D' "CMAKE_BUILD_TYPE=$($env.conf)"
-    Push-Arguments '-D' "CMAKE_INSTALL_PREFIX=$($env.out)"
     if ($trace) {
         Push-Arguments '--trace'
     }
