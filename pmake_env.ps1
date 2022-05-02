@@ -17,13 +17,17 @@ $build_path = (Get-Item $build).FullName
     $proj_build_path = "$build_path/outputs"
 $out_path = (Get-Item $out).FullName
 
+$unix = (([Environment]::OSVersion).Platform -eq 'Unix')
+$host_path = (&{ if (-not $unix) { 'x64-windows-static' } else { 'x64-linux' } })
+$vcpkg = (&{ if (-not $unix) { 'vcpkg.exe' } else { 'vcpkg' } })
+
 ###########################################################################################################################################
 
 # Specify the target architecture triplet. See 'vcpkg help triplet'
-New-Item -Path env: -Name VCPKG_DEFAULT_TRIPLET -Value x64-windows-static
+New-Item -Path env: -Name VCPKG_DEFAULT_TRIPLET -Value $host_path
 
 # Specify the host architecture triplet. See 'vcpkg help triplet'
-New-Item -Path env: -Name VCPKG_DEFAULT_HOST_TRIPLET -Value x64-windows-static
+New-Item -Path env: -Name VCPKG_DEFAULT_HOST_TRIPLET -Value $host_path
 
 # Specify directories to be used when searching for ports
 New-Item -Path env: -Name VCPKG_OVERLAY_PORTS -Value $ports_path
@@ -77,7 +81,7 @@ function vcpkg {
         "--x-packages-root=$env:X_packages_root"       # Specify the packages root directory
     ) + $vcpkg_args
     Write-Debug ($fargs -join " ")
-    & "$env:VCPKG_ROOT/vcpkg.exe" $fargs
+    & "$env:VCPKG_ROOT/$vcpkg" $fargs
 }
 
 Import-Module "$PSScriptRoot/pmake_vcpkg.psm1" -Force *>&1 | Out-Null

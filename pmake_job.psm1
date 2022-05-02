@@ -1,7 +1,7 @@
 
 Import-Module "$PSScriptRoot/pmake_helper.psm1" -Force *>&1 | Out-Null
 
-function Invoke-Make {
+function Invoke-PMakeBuild {
     [CmdletBinding()]
     param (
         [String] $root,
@@ -100,4 +100,4 @@ function Invoke-Make {
     }
 }
 
-Export-ModuleMember -Function Invoke-Make *>&1 | Out-Null
+Export-ModuleMember -Function Invoke-PMakeBuild *>&1 | Out-Null

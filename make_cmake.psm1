@@ -56,6 +56,7 @@ function Get-VsWhere {
         [Parameter(ParameterSetName = "2")][String] $property
     )
     $vswhere = "C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+    if (-not (Test-Path $vswhere)) { return $null }
     if ($find) {
         & $vswhere -latest -requires $component -find $find
     }
@@ -78,6 +79,9 @@ function Get-CMake {
         $script:_cmake = Get-VsWhere `
             -component 'Microsoft.VisualStudio.Component.VC.CMake.Project' `
             -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/**/cmake.exe'
+        if (-not $script:_cmake) {
+            $script:_cmake = & 'which' 'cmake'
+        }
     }
     $script:_cmake
 }
@@ -87,6 +91,9 @@ function Get-Ninja {
         $script:_ninja = Get-VsWhere `
             -component 'Microsoft.VisualStudio.Component.VC.CMake.Project' `
             -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/**/ninja.exe'
+        if (-not $script:_ninja) {
+            $script:_ninja = & 'which' 'ninja'
+        }
     }
     $script:_ninja
 }

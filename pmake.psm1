@@ -33,7 +33,7 @@ function Invoke-PMake {
         $filter = { $_ -like 'msvc-win-amd64-dbg' }
     }
 
-    Invoke-Make `
+    Invoke-PMakeBuild `
         -root:$root `
         -filter:$filter `
         -no_parallel:$no_parallel `
