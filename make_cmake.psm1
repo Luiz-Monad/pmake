@@ -74,6 +74,11 @@ function Get-MsBuild {
     $script:_msbuild
 }
 
+function Parse-Version {
+    param ($ver)
+    [System.Version]::Parse(((($ver -split '-')[1]) -split '-')[0])
+}
+
 function Get-CMake {
     if (-not $script:_cmake) {
         $script:_cmake = Get-VsWhere `
@@ -82,7 +87,9 @@ function Get-CMake {
         if (-not $script:_cmake) {
             $script:_cmake = (
                 Get-ChildItem $env:VCPKG_DOWNLOADS -Recurse -Filter "cmake" |
-                Where-Object { $_ -like '*/bin/*' }
+                Where-Object { $_ -like '*/bin/*' } |
+                Sort-Object { Parse-Version $_.FullName } |
+                Select -Last 1
             ).FullName
         }
     }
@@ -96,7 +103,9 @@ function Get-Ninja {
             -find 'Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja/**/ninja.exe'
         if (-not $script:_ninja) {
             $script:_ninja = (
-                Get-ChildItem $env:VCPKG_DOWNLOADS -Recurse -Include 'ninja'
+                Get-ChildItem $env:VCPKG_DOWNLOADS -Recurse -Filter "ninja" |
+                Sort-Object { Parse-Version $_.FullName } |
+                Select -Last 1
             ).FullName
         }
     }
