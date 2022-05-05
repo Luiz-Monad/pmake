@@ -99,7 +99,7 @@ function vcpkg_export_port_overlay {
             $src = $null
             $source = $null
             $port_name = $null
-            $port_namespace = $null
+            $port_basedir = $null
             Import-Module $_ -Force -Scope Local
             if (Test-Path $source) {
                 $src = (Get-Item $source).FullName
@@ -112,8 +112,8 @@ function vcpkg_export_port_overlay {
                 $port = $dir.BaseName
             }
 
-            if ($port_namespace) {
-                $ns = $port_namespace
+            if ($port_basedir) {
+                $ns = $port_basedir
             } else {
                 $ns = $dir.BaseName
             }
